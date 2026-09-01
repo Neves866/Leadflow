@@ -1,18 +1,36 @@
+'use client';
+
 import styles from "./details.module.css";
 import { MOCK_LEADS, LeadStatus } from "@/lib/mocks";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
-export default function LeadDetailsPage({ params }: { params: { id: string } }) {
+export default function LeadDetailsPage() {
   const router = useRouter();
+  const params = useParams();
+  const id = params.id as string;
   const [lead, setLead] = useState<any>(null);
 
   useEffect(() => {
+    if (!id) return;
     const localLeads = JSON.parse(localStorage.getItem('leadflow_leads') || '[]');
+    const overrides = JSON.parse(localStorage.getItem('leadflow_status_overrides') || '{}');
     const allLeads = [...localLeads, ...MOCK_LEADS];
-    const found = allLeads.find(l => l.id === params.id);
-    setLead(found);
-  }, [params.id]);
+    const found = allLeads.find(l => l.id === id);
+    if (found) {
+      setLead({ ...found, status: overrides[id] || found.status });
+    }
+  }, [id]);
+
+  const handleStatusChange = (newStatus: string) => {
+    if (!lead) return;
+
+    const overrides = JSON.parse(localStorage.getItem('leadflow_status_overrides') || '{}');
+    overrides[lead.id] = newStatus;
+    localStorage.setItem('leadflow_status_overrides', JSON.stringify(overrides));
+
+    setLead({ ...lead, status: newStatus });
+  };
 
   if (!lead) {
     return (
@@ -38,9 +56,17 @@ export default function LeadDetailsPage({ params }: { params: { id: string } }) 
           <button className={styles.whatsappButton} onClick={handleWhatsApp}>
             WhatsApp
           </button>
-          <button className={styles.statusButton}>
-            Alterar Status
-          </button>
+          <select
+            className={styles.statusButton}
+            value={lead.status}
+            onChange={(e) => handleStatusChange(e.target.value)}
+          >
+            <option value="Novo">Novo</option>
+            <option value="Qualificado">Qualificado</option>
+            <option value="Orçamento">Orçamento</option>
+            <option value="Negociação">Negociação</option>
+            <option value="Fechado">Fechado</option>
+          </select>
         </div>
       </header>
 

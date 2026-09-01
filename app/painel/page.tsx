@@ -1,19 +1,44 @@
+'use client';
+
 import styles from "./painel.module.css";
 import { MOCK_LEADS, LeadStatus } from "@/lib/mocks";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function PainelPage() {
+  const router = useRouter();
+  const [leads, setLeads] = useState<any[]>(MOCK_LEADS);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const localLeads = JSON.parse(localStorage.getItem('leadflow_leads') || '[]');
+    const overrides = JSON.parse(localStorage.getItem('leadflow_status_overrides') || '{}');
+
+    const allLeads = [...localLeads, ...MOCK_LEADS].map(lead => ({
+      ...lead,
+      status: overrides[lead.id] || lead.status
+    }));
+
+    setLeads(allLeads);
+    setLoading(false);
+  }, []);
+
+  if (loading) {
+    return <div className={styles.container}>Carregando...</div>;
+  }
+
   const today = new Date().toISOString().split('T')[0];
 
-  const leadsHoje = MOCK_LEADS.filter(l => l.data === today).length;
-  const novosLeads = MOCK_LEADS.filter(l => l.status === 'Novo').length;
-  const emNegociacao = MOCK_LEADS.filter(l => ['Orçamento', 'Negociação'].includes(l.status)).length;
-  const fechados = MOCK_LEADS.filter(l => l.status === 'Fechado').length;
-  const valorPotencial = MOCK_LEADS.reduce((acc, l) => acc + l.valorPotencial, 0);
+  const leadsHoje = leads.filter(l => l.data === today).length;
+  const novosLeads = leads.filter(l => l.status === 'Novo').length;
+  const emNegociacao = leads.filter(l => ['Orçamento', 'Negociação'].includes(l.status)).length;
+  const fechados = leads.filter(l => l.status === 'Fechado').length;
+  const valorPotencial = leads.reduce((acc, l) => acc + (l.valorPotencial || 0), 0);
 
   const pipelineStats = (status: LeadStatus) =>
-    MOCK_LEADS.filter(l => l.status === status).length;
+    leads.filter(l => l.status === status).length;
 
-  const recentLeads = [...MOCK_LEADS].sort((a, b) => b.data.localeCompare(a.data)).slice(0, 5);
+  const recentLeads = [...leads].sort((a, b) => b.data.localeCompare(a.data)).slice(0, 5);
 
   return (
     <main className={styles.container}>
@@ -23,7 +48,7 @@ export default function PainelPage() {
           <h1 className={styles.title}>Visão Geral</h1>
         </div>
 
-        <button className={styles.button}>+ Novo Lead</button>
+        <button className={styles.button} onClick={() => router.push('/formulario/demo')}>+ Novo Lead</button>
       </header>
 
       <section className={styles.cards}>
@@ -105,7 +130,7 @@ export default function PainelPage() {
                 <td>{lead.servico}</td>
                 <td>{lead.origem}</td>
                 <td>{lead.status}</td>
-                <td>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.valorPotencial)}</td>
+                <td>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.valorPotencial || 0)}</td>
               </tr>
             ))}
           </tbody>

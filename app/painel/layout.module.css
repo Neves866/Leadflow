@@ -24,16 +24,26 @@
   gap: 10px;
 }
 
-.nav a {
+.navLink {
+  display: block;
+  padding: 10px 12px;
   color: #d1d5db;
   text-decoration: none;
-  padding: 10px 12px;
   border-radius: 8px;
+  font-size: 15px;
+  font-weight: 500;
+  transition: all 0.2s;
 }
 
-.nav a:hover {
+.navLink:hover {
   background: #1f2937;
   color: white;
+}
+
+.navLink.active {
+  background: #374151;
+  color: white;
+  font-weight: 600;
 }
 
 .content {

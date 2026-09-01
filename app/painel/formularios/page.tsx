@@ -1,4 +1,7 @@
+'use client';
+
 import styles from "./formularios.module.css";
+import { useRouter } from "next/navigation";
 
 const forms = [
   {
@@ -22,6 +25,16 @@ const forms = [
 ];
 
 export default function FormulariosPage() {
+  const router = useRouter();
+
+  const handleAction = (action: string) => {
+    if (action === 'view') {
+      router.push('/formulario/demo');
+    } else {
+      alert('Recurso demonstrativo: Esta funcionalidade estará disponível na versão completa.');
+    }
+  };
+
   return (
     <main className={styles.container}>
       <header className={styles.header}>
@@ -29,7 +42,7 @@ export default function FormulariosPage() {
           <h1 className={styles.title}>Formulários</h1>
           <p className={styles.subtitle}>Crie e gerencie seus formulários de captação.</p>
         </div>
-        <button className={styles.button}>+ Novo Formulário</button>
+        <button className={styles.button} onClick={() => handleAction('new')}>+ Novo Formulário</button>
       </header>
 
       <div className={styles.grid}>
@@ -52,8 +65,8 @@ export default function FormulariosPage() {
               </div>
             </div>
             <div className={styles.cardFooter}>
-              <button className={styles.btnEdit}>Editar</button>
-              <button className={styles.btnView}>Visualizar</button>
+              <button className={styles.btnEdit} onClick={() => handleAction('edit')}>Editar</button>
+              <button className={styles.btnView} onClick={() => handleAction('view')}>Visualizar</button>
             </div>
           </div>
         ))}

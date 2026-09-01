@@ -44,7 +44,7 @@ export default function DemoForm() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Simple localStorage simulation
+    const protocol = `LF-${Math.floor(100000 + Math.random() * 900000)}`;
     const existingLeads = JSON.parse(localStorage.getItem('leadflow_leads') || '[]');
     const newLead = {
       id: Date.now().toString(),
@@ -58,9 +58,11 @@ export default function DemoForm() {
       valorPotencial: 0,
       data: new Date().toISOString().split('T')[0],
       observacoes: formData.notes,
+      protocol: protocol,
     };
 
     localStorage.setItem('leadflow_leads', JSON.stringify([...existingLeads, newLead]));
+    localStorage.setItem('leadflow_last_protocol', protocol);
     router.push('/sucesso');
   };
 

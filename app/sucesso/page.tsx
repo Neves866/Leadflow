@@ -1,8 +1,17 @@
+'use client';
+
 import styles from "./sucesso.module.css";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function SucessoPage() {
   const router = useRouter();
+  const [protocol, setProtocol] = useState<string>('');
+
+  useEffect(() => {
+    const savedProtocol = localStorage.getItem('leadflow_last_protocol') || '#LF-000000';
+    setProtocol(savedProtocol);
+  }, []);
 
   return (
     <div className={styles.page}>
@@ -15,7 +24,7 @@ export default function SucessoPage() {
 
         <div className={styles.protocol}>
           <span className={styles.label}>Protocolo:</span>
-          <span className={styles.value}>#LF-{(Math.random() * 1000000).toFixed(0)}</span>
+          <span className={styles.value}>{protocol}</span>
         </div>
 
         <div className={styles.actions}>

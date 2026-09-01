@@ -1,3 +1,5 @@
+'use client';
+
 import styles from "./leads.module.css";
 import { MOCK_LEADS } from "@/lib/mocks";
 import { useRouter } from "next/navigation";
@@ -6,13 +8,31 @@ import { useEffect, useState } from "react";
 export default function LeadsPage() {
   const router = useRouter();
   const [leads, setLeads] = useState(MOCK_LEADS);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('Todos os status');
 
   useEffect(() => {
     const localLeads = JSON.parse(localStorage.getItem('leadflow_leads') || '[]');
-    if (localLeads.length > 0) {
-      setLeads([...localLeads, ...MOCK_LEADS]);
-    }
+    const overrides = JSON.parse(localStorage.getItem('leadflow_status_overrides') || '{}');
+
+    const allLeads = [...localLeads, ...MOCK_LEADS].map(lead => ({
+      ...lead,
+      status: overrides[lead.id] || lead.status
+    }));
+
+    setLeads(allLeads);
   }, []);
+
+  const filteredLeads = leads.filter(lead => {
+    const matchesSearch =
+      lead.nome.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      lead.servico.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (lead.telefone && lead.telefone.includes(searchQuery));
+
+    const matchesStatus = statusFilter === 'Todos os status' || lead.status === statusFilter;
+
+    return matchesSearch && matchesStatus;
+  });
 
   return (
     <main className={styles.container}>
@@ -22,13 +42,23 @@ export default function LeadsPage() {
           <p className={styles.subtitle}>Gerencie todas as oportunidades recebidas.</p>
         </div>
 
-        <button className={styles.button}>+ Novo lead</button>
+        <button className={styles.button} onClick={() => router.push('/formulario/demo')}>+ Novo lead</button>
       </header>
 
       <div className={styles.filters}>
-        <input type="text" className={styles.searchInput} placeholder="Buscar lead..." />
+        <input
+          type="text"
+          className={styles.searchInput}
+          placeholder="Buscar lead..."
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+        />
 
-        <select className={styles.statusFilter}>
+        <select
+          className={styles.statusFilter}
+          value={statusFilter}
+          onChange={e => setStatusFilter(e.target.value)}
+        >
           <option>Todos os status</option>
           <option>Novo</option>
           <option>Qualificado</option>
@@ -51,7 +81,7 @@ export default function LeadsPage() {
           </thead>
 
           <tbody>
-            {leads.map((lead) => (
+            {filteredLeads.map((lead) => (
               <tr
                 key={lead.id}
                 className={styles.tableRow}
