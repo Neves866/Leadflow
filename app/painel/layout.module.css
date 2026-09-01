@@ -1,0 +1,48 @@
+.wrapper {
+  min-height: 100vh;
+  display: flex;
+  background: #f5f7fb;
+}
+
+.sidebar {
+  width: 240px;
+  min-height: 100vh;
+  background: #111827;
+  color: white;
+  padding: 24px 18px;
+}
+
+.logo {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 32px;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.nav a {
+  color: #d1d5db;
+  text-decoration: none;
+  padding: 10px 12px;
+  border-radius: 8px;
+}
+
+.nav a:hover {
+  background: #1f2937;
+  color: white;
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 800px) {
+  .sidebar {
+    width: 190px;
+  }
+}

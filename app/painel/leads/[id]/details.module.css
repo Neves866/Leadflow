@@ -1,0 +1,168 @@
+.container {
+  padding: 32px;
+  font-family: Arial, sans-serif;
+  color: #111827;
+  min-height: 100vh;
+  background: #f5f7fb;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+.backButton {
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  font-size: 16px;
+  transition: color 0.2s;
+}
+
+.backButton:hover {
+  color: #111827;
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+}
+
+.whatsappButton {
+  background: #25d366;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.statusButton {
+  background: #111827;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.card {
+  background: white;
+  padding: 24px;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+}
+
+.fullWidth {
+  width: 100%;
+  margin-bottom: 24px;
+}
+
+.cardTitle {
+  font-size: 18px;
+  margin: 0 0 20px;
+  color: #374151;
+  border-bottom: 1px solid #f3f4f6;
+  padding-bottom: 12px;
+}
+
+.infoGroup {
+  margin-bottom: 16px;
+}
+
+.label {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0 0 4px;
+}
+
+.value {
+  font-size: 16px;
+  font-weight: 500;
+  margin: 0;
+  color: #111827;
+}
+
+.statusWrapper {
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: 20px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.statusBadge {
+  font-weight: 600;
+  color: #1d4ed8;
+}
+
+.responses {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.responseItem {
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.notesArea {
+  width: 100%;
+  min-height: 100px;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-left: 20px;
+  border-left: 2px solid #e5e7eb;
+}
+
+.timelineItem {
+  position: relative;
+}
+
+.dot {
+  position: absolute;
+  left: -27px;
+  top: 6px;
+  width: 12px;
+  height: 12px;
+  background: #6366f1;
+  border-radius: 50%;
+  border: 2px solid white;
+}
+
+.timelineContent .time {
+  font-size: 12px;
+  color: #9ca3af;
+  margin: 0 0 4px;
+}
+
+.timelineContent p {
+  margin: 0;
+  font-size: 14px;
+  color: #4b5563;
+}

@@ -1,0 +1,173 @@
+.page {
+  min-height: 100vh;
+  background: #f3f4f6;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+}
+
+.formContainer {
+  background: white;
+  width: 100%;
+  max-width: 500px;
+  border-radius: 24px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+  overflow: hidden;
+  padding: 40px;
+}
+
+.progress {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+.step {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #e5e7eb;
+  color: #9ca3af;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.3s;
+}
+
+.step.active {
+  background: #6366f1;
+  color: white;
+  transform: scale(1.1);
+}
+
+.stepContent {
+  animation: fadeIn 0.4s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.title {
+  font-size: 24px;
+  text-align: center;
+  margin: 0 0 8px;
+  color: #111827;
+}
+
+.subtitle {
+  font-size: 15px;
+  text-align: center;
+  color: #6b7280;
+  margin: 0 0 32px;
+}
+
+.categoryGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.categoryCard {
+  background: white;
+  border: 2px solid #e5e7eb;
+  padding: 24px;
+  border-radius: 16px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  transition: all 0.2s;
+}
+
+.categoryCard:hover {
+  border-color: #6366f1;
+  background: #f5f7fb;
+}
+
+.categoryIcon {
+  font-size: 32px;
+}
+
+.categoryLabel {
+  font-weight: 600;
+  color: #374151;
+  text-align: center;
+}
+
+.formGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #4b5563;
+}
+
+.field input,
+.field select,
+.field textarea {
+  padding: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 16px;
+  font-family: inherit;
+}
+
+.field textarea {
+  min-height: 80px;
+}
+
+.navButtons {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.btnPrimary {
+  background: #6366f1;
+  color: white;
+  border: none;
+  padding: 14px 24px;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  flex: 1;
+}
+
+.btnSecondary {
+  background: #f3f4f6;
+  color: #4b5563;
+  border: none;
+  padding: 14px 24px;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  flex: 1;
+}
+
+@media (max-width: 480px) {
+  .formContainer {
+    padding: 24px;
+  }
+  .categoryGrid {
+    grid-template-columns: 1fr;
+  }
+}
