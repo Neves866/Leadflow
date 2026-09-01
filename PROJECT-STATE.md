@@ -12,7 +12,7 @@ Demonstração visual e navegável de ponta a ponta de um SaaS de captação e g
 - localStorage (simulação de persistência)
 
 ## Estado verificado em
-2026-09-01 / 12:00 (approx)
+2026-09-01 / 12:45 (approx)
 
 ## Estrutura atual
 - `app/`: Diretório principal de rotas.
@@ -29,7 +29,7 @@ Demonstração visual e navegável de ponta a ponta de um SaaS de captação e g
 - `/formulario/demo`: Formulário multi-etapa (Client Component). Salva respostas completas e ID do lead.
 - `/sucesso`: Confirmação (Client Component). Protocolo consistente e link para o lead recém-criado.
 - `/painel`: Dashboard (Client Component). Integra Mocks + localStorage, reflete KPIs e trata Valor Potencial Zero.
-- `/painel/leads`: Listagem (Client Component). Integra Mocks + localStorage, busca, filtro e trata Valor Potencial Zero.
+- `/painel/leads`: Listagem (Client Component). Integra Mocks + localStorage, possui busca e filtro de status.
 - `/painel/leads/[id]`: Detalhes (Client Component). Exibe respostas completas, normaliza WhatsApp (DDI 55) e trata Valor Potencial Zero.
 - `/painel/formularios`: Gestão de formulários (Client Component). Botões funcionais com feedbacks.
 - `/painel/clientes`: Gestão de clientes (Client Component). Estilização profissional e botões com feedback.
@@ -86,6 +86,7 @@ Demonstração visual e navegável de ponta a ponta de um SaaS de captação e g
 - [x] Acabamento Final: Normalização de WhatsApp (DDI 55).
 - [x] Acabamento Final: Sidebar ativa em sub-rotas de leads.
 - [x] Acabamento Final: Feedback em botões demonstrativos.
+- [x] Design Final: Redesign premium do Dashboard e Sidebar.
 
 ## Testes executados
 - `npm run build` → PASS

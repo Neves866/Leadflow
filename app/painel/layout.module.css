@@ -1,58 +1,192 @@
 .wrapper {
   min-height: 100vh;
   display: flex;
-  background: #f5f7fb;
+  background: #F6F7FB;
 }
 
 .sidebar {
-  width: 240px;
+  width: 260px;
   min-height: 100vh;
-  background: #111827;
+  background: #0F172A;
   color: white;
-  padding: 24px 18px;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 16px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
 }
 
-.logo {
-  font-size: 22px;
+.brandArea {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+  margin-bottom: 40px;
+}
+
+.logoIcon {
+  width: 32px;
+  height: 32px;
+  background: #6366F1;
+  color: white;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 18px;
+}
+
+.logoText {
+  display: flex;
+  flex-direction: column;
+}
+
+.logoName {
+  font-size: 18px;
   font-weight: 700;
-  margin-bottom: 32px;
+  line-height: 1;
+}
+
+.logoSub {
+  font-size: 10px;
+  color: #94A3B8;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 .nav {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 4px;
+  flex: 1;
 }
 
 .navLink {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 12px;
   padding: 10px 12px;
-  color: #d1d5db;
+  color: #94A3B8;
   text-decoration: none;
   border-radius: 8px;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 500;
   transition: all 0.2s;
 }
 
+.navIcon {
+  font-size: 16px;
+  width: 20px;
+  text-align: center;
+}
+
+.navLabel {
+  flex: 1;
+}
+
 .navLink:hover {
-  background: #1f2937;
+  background: #1E293B;
   color: white;
 }
 
 .navLink.active {
-  background: #374151;
+  background: #1E293B;
   color: white;
   font-weight: 600;
+  position: relative;
+}
+
+.navLink.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  background: #6366F1;
+  border-radius: 0 4px 4px 0;
+}
+
+.userArea {
+  margin-top: auto;
+  padding-top: 20px;
+  border-top: 1px solid #1E293B;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 12px;
+  border-radius: 12px;
+  background: #1E293B40;
+  position: relative;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  background: #475569;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.userInfo {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.userName {
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+}
+
+.userRole {
+  font-size: 12px;
+  color: #94A3B8;
+}
+
+.onlineIndicator {
+  width: 10px;
+  height: 10px;
+  background: #22C55E;
+  border: 2px solid #0F172A;
+  border-radius: 50%;
+  position: absolute;
+  right: 12px;
+  bottom: 16px;
 }
 
 .content {
   flex: 1;
   min-width: 0;
+  background: #F6F7FB;
 }
 
 @media (max-width: 800px) {
   .sidebar {
-    width: 190px;
+    width: 80px;
+    padding: 24px 8px;
+  }
+  .logoText, .navLabel, .userInfo {
+    display: none;
+  }
+  .brandArea {
+    justify-content: center;
+    padding: 0;
+  }
+  .navLink {
+    justify-content: center;
+    padding: 12px;
+  }
+  .userArea {
+    justify-content: center;
+    padding: 12px 0;
   }
 }

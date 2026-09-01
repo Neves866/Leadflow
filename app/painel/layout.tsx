@@ -12,17 +12,23 @@ export default function PainelLayout({
   const pathname = usePathname();
 
   const navItems = [
-    { label: "Visão geral", href: "/painel" },
-    { label: "Leads", href: "/painel/leads" },
-    { label: "Formulários", href: "/painel/formularios" },
-    { label: "Clientes", href: "/painel/clientes" },
-    { label: "Configurações", href: "/painel/configuracoes" },
+    { label: "Visão geral", href: "/painel", icon: "📊" },
+    { label: "Leads", href: "/painel/leads", icon: "👥" },
+    { label: "Formulários", href: "/painel/formularios", icon: "📝" },
+    { label: "Clientes", href: "/painel/clientes", icon: "🏢" },
+    { label: "Configurações", href: "/painel/configuracoes", icon: "⚙️" },
   ];
 
   return (
     <div className={styles.wrapper}>
       <aside className={styles.sidebar}>
-        <h2 className={styles.logo}>LeadFlow</h2>
+        <div className={styles.brandArea}>
+          <div className={styles.logoIcon}>L</div>
+          <div className={styles.logoText}>
+            <span className={styles.logoName}>LeadFlow</span>
+            <span className={styles.logoSub}>CRM</span>
+          </div>
+        </div>
 
         <nav className={styles.nav}>
           {navItems.map(item => {
@@ -36,11 +42,21 @@ export default function PainelLayout({
                 href={item.href}
                 className={`${styles.navLink} ${isActive ? styles.active : ''}`}
               >
-                {item.label}
+                <span className={styles.navIcon}>{item.icon}</span>
+                <span className={styles.navLabel}>{item.label}</span>
               </Link>
             );
           })}
         </nav>
+
+        <div className={styles.userArea}>
+          <div className={styles.avatar}>CN</div>
+          <div className={styles.userInfo}>
+            <span className={styles.userName}>Conta Demo</span>
+            <span className={styles.userRole}>Administrador</span>
+          </div>
+          <div className={styles.onlineIndicator} />
+        </div>
       </aside>
 
       <div className={styles.content}>{children}</div>
