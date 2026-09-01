@@ -46,8 +46,9 @@ export default function DemoForm() {
 
     const protocol = `LF-${Math.floor(100000 + Math.random() * 900000)}`;
     const existingLeads = JSON.parse(localStorage.getItem('leadflow_leads') || '[]');
+    const leadId = Date.now().toString();
     const newLead = {
-      id: Date.now().toString(),
+      id: leadId,
       nome: formData.name,
       telefone: formData.whatsapp,
       email: '',
@@ -59,10 +60,22 @@ export default function DemoForm() {
       data: new Date().toISOString().split('T')[0],
       observacoes: formData.notes,
       protocol: protocol,
+      respostas: {
+        categoria: formData.category,
+        tipoServico: formData.serviceType,
+        btus: formData.btus,
+        possuiEquipamento: formData.hasEquipment,
+        costasACostas: formData.backToBack,
+        cidade: formData.city,
+        bairro: formData.neighborhood,
+        urgencia: formData.urgency,
+        observacoes: formData.notes,
+      }
     };
 
     localStorage.setItem('leadflow_leads', JSON.stringify([...existingLeads, newLead]));
     localStorage.setItem('leadflow_last_protocol', protocol);
+    localStorage.setItem('leadflow_last_lead_id', leadId);
     router.push('/sucesso');
   };
 

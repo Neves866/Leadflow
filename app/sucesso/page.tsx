@@ -7,10 +7,13 @@ import { useEffect, useState } from "react";
 export default function SucessoPage() {
   const router = useRouter();
   const [protocol, setProtocol] = useState<string>('');
+  const [lastLeadId, setLastLeadId] = useState<string | null>(null);
 
   useEffect(() => {
     const savedProtocol = localStorage.getItem('leadflow_last_protocol') || '#LF-000000';
+    const leadId = localStorage.getItem('leadflow_last_lead_id');
     setProtocol(savedProtocol);
+    setLastLeadId(leadId);
   }, []);
 
   return (
@@ -28,11 +31,14 @@ export default function SucessoPage() {
         </div>
 
         <div className={styles.actions}>
-          <button className={styles.btnPrimary} onClick={() => window.open('https://wa.me/5511999999999', '_blank')}>
-            Continuar no WhatsApp
+          <button
+            className={styles.btnPrimary}
+            onClick={() => router.push(lastLeadId ? `/painel/leads/${lastLeadId}` : '/painel/leads')}
+          >
+            Ver lead no painel
           </button>
           <button className={styles.btnSecondary} onClick={() => router.push('/')}>
-            Voltar para o Início
+            Voltar ao Início
           </button>
         </div>
       </div>

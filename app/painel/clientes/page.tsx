@@ -1,3 +1,5 @@
+'use client';
+
 import styles from "./clientes.module.css";
 
 const clients = [
@@ -35,7 +37,7 @@ export default function ClientesPage() {
           <h1 className={styles.title}>Clientes</h1>
           <p className={styles.subtitle}>Gestão de contas multiempresa.</p>
         </div>
-        <button className={styles.button}>+ Nova Empresa</button>
+        <button className={styles.button} onClick={() => alert('Recurso disponível na versão completa.')}>+ Nova Empresa</button>
       </header>
 
       <div className={styles.tableWrapper}>

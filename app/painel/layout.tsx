@@ -25,15 +25,21 @@ export default function PainelLayout({
         <h2 className={styles.logo}>LeadFlow</h2>
 
         <nav className={styles.nav}>
-          {navItems.map(item => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`${styles.navLink} ${pathname === item.href ? styles.active : ''}`}
-            >
-              {item.label}
-            </Link>
-          ))}
+          {navItems.map(item => {
+            const isActive = item.href === '/painel'
+              ? pathname === '/painel'
+              : pathname.startsWith(item.href);
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`${styles.navLink} ${isActive ? styles.active : ''}`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
       </aside>
 

@@ -12,7 +12,7 @@ Demonstração visual e navegável de ponta a ponta de um SaaS de captação e g
 - localStorage (simulação de persistência)
 
 ## Estado verificado em
-2026-09-01 / 11:30 (approx)
+2026-09-01 / 12:00 (approx)
 
 ## Estrutura atual
 - `app/`: Diretório principal de rotas.
@@ -26,17 +26,17 @@ Demonstração visual e navegável de ponta a ponta de um SaaS de captação e g
 
 ## Rotas
 - `/`: Home (Landing Page LeadFlow).
-- `/formulario/demo`: Formulário multi-etapa (Client Component). Funciona e salva no localStorage.
-- `/sucesso`: Confirmação (Client Component). Lê protocolo do localStorage.
-- `/painel`: Dashboard (Client Component). Integra Mocks + localStorage e reflete KPIs em tempo real.
-- `/painel/leads`: Listagem (Client Component). Integra Mocks + localStorage, possui busca e filtro de status.
-- `/painel/leads/[id]`: Detalhes (Client Component). Permite alteração de status persistida em localStorage.
-- `/painel/formularios`: Gestão de formulários (Client Component). Botões funcionais (View -> Demo, outros -> Feedback).
-- `/painel/clientes`: Gestão de clientes (Server Component). Estilização profissional aplicada.
+- `/formulario/demo`: Formulário multi-etapa (Client Component). Salva respostas completas e ID do lead.
+- `/sucesso`: Confirmação (Client Component). Protocolo consistente e link para o lead recém-criado.
+- `/painel`: Dashboard (Client Component). Integra Mocks + localStorage, reflete KPIs e trata Valor Potencial Zero.
+- `/painel/leads`: Listagem (Client Component). Integra Mocks + localStorage, busca, filtro e trata Valor Potencial Zero.
+- `/painel/leads/[id]`: Detalhes (Client Component). Exibe respostas completas, normaliza WhatsApp (DDI 55) e trata Valor Potencial Zero.
+- `/painel/formularios`: Gestão de formulários (Client Component). Botões funcionais com feedbacks.
+- `/painel/clientes`: Gestão de clientes (Client Component). Estilização profissional e botões com feedback.
 - `/painel/configuracoes`: Página de configurações (Client Component). Interface visual completa.
 
 ## Fluxo da demo
-`/` → `/formulario/demo` → `/sucesso` → `/painel` → `/painel/leads` → `/painel/leads/[id]`
+`/` → `/formulario/demo` → `/sucesso` → `/painel/leads/[id]` → `/painel/leads` → `/painel`
 
 ## Dados mockados
 - `MOCK_LEADS` em `@/lib/mocks`.
@@ -44,12 +44,13 @@ Demonstração visual e navegável de ponta a ponta de um SaaS de captação e g
 ## localStorage
 - `leadflow_leads`: Lista de leads criados via formulário.
 - `leadflow_last_protocol`: Último protocolo gerado.
+- `leadflow_last_lead_id`: ID do último lead criado para redirecionamento na página de sucesso.
 - `leadflow_status_overrides`: Mapeamento de ID -> Status para persistir alterações nos mocks.
 
 ## Componentes / páginas importantes
-- `app/formulario/demo/page.tsx`: Lógica de etapas e persistência inicial.
+- `app/formulario/demo/page.tsx`: Lógica de etapas e persistência de respostas.
 - `app/painel/leads/page.tsx`: Agregador de mocks + localStorage.
-- `app/painel/layout.tsx`: Sidebar de navegação com rota ativa.
+- `app/painel/layout.tsx`: Sidebar de navegação com destaque de rota ativa (inclusive em sub-rotas).
 
 ## CSS Modules
 - `app/formulario/demo/form.module.css`
@@ -78,19 +79,26 @@ Demonstração visual e navegável de ponta a ponta de um SaaS de captação e g
 - [x] Fase C: Landing Page LeadFlow em `/`.
 - [x] Fase C: Atualizar metadata e lang para pt-BR.
 - [x] Fase C: Refinar sidebar com indicação de rota ativa.
+- [x] Acabamento Final: Salvar todas as respostas do formulário.
+- [x] Acabamento Final: Mostrar respostas completas no detalhe do lead.
+- [x] Acabamento Final: Redirecionamento inteligente na página de sucesso.
+- [x] Acabamento Final: Tratamento de Valor Potencial Zero ("A definir").
+- [x] Acabamento Final: Normalização de WhatsApp (DDI 55).
+- [x] Acabamento Final: Sidebar ativa em sub-rotas de leads.
+- [x] Acabamento Final: Feedback em botões demonstrativos.
 
 ## Testes executados
 - `npm run build` → PASS
-- Runtime Browser → Validado fluxo completo: Home -> Formulário -> Sucesso -> Painel -> Leads -> Detalhes -> Alterar Status -> Dashboard.
+- Runtime Browser → Validado fluxo completo: Home -> Formulário -> Sucesso -> Lead Detalhes (com respostas) -> WhatsApp -> Status -> Dashboard.
 
 ## Problemas conhecidos
 - Nenhum crítico para a demo.
 
 ## Pendências
-- [ ] Fase D: Validação final build + dev.
+- [ ] Fase D: Validação final build + dev (Concluída).
 
 ## Próxima tarefa EXATA
-Fase D: Executar `npm run build` e validar fluxo final no navegador.
+Apresentação do produto.
 
 ## Último arquivo em edição
 PROJECT-STATE.md

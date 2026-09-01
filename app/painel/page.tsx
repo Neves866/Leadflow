@@ -130,7 +130,9 @@ export default function PainelPage() {
                 <td>{lead.servico}</td>
                 <td>{lead.origem}</td>
                 <td>{lead.status}</td>
-                <td>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.valorPotencial || 0)}</td>
+                <td>{lead.valorPotencial === 0
+                  ? 'A definir'
+                  : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.valorPotencial)}</td>
               </tr>
             ))}
           </tbody>

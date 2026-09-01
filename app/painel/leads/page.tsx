@@ -93,7 +93,9 @@ export default function LeadsPage() {
                 <td>
                   <span className={styles.statusBadge}>{lead.status}</span>
                 </td>
-                <td>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.valorPotencial)}</td>
+                <td>{lead.valorPotencial === 0
+                  ? 'A definir'
+                  : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.valorPotencial)}</td>
               </tr>
             ))}
           </tbody>

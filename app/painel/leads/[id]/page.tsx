@@ -43,7 +43,12 @@ export default function LeadDetailsPage() {
 
   const handleWhatsApp = () => {
     const message = encodeURIComponent(`Olá ${lead.nome}, vi seu interesse em ${lead.servico} no LeadFlow.`);
-    window.open(`https://wa.me/${lead.telefone.replace(/\D/g, '')}?text=${message}`, '_blank');
+    const digits = lead.telefone.replace(/\D/g, '');
+    let normalizedPhone = digits;
+    if (digits.length === 10 || digits.length === 11) {
+      normalizedPhone = `55${digits}`;
+    }
+    window.open(`https://wa.me/${normalizedPhone}?text=${message}`, '_blank');
   };
 
   return (
@@ -107,7 +112,11 @@ export default function LeadDetailsPage() {
           </div>
           <div className={styles.infoGroup}>
             <p className={styles.label}>Valor Potencial</p>
-            <p className={styles.value}>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.valorPotencial)}</p>
+            <p className={styles.value}>
+              {lead.valorPotencial === 0
+                ? 'A definir'
+                : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.valorPotencial)}
+            </p>
           </div>
         </section>
 
@@ -122,14 +131,65 @@ export default function LeadDetailsPage() {
       <section className={`${styles.card} ${styles.fullWidth}`}>
         <h2 className={styles.cardTitle}>Respostas do Formulário</h2>
         <div className={styles.responses}>
-          <div className={styles.responseItem}>
-            <p className={styles.label}>Qual a sua necessidade principal?</p>
-            <p className={styles.value}>{lead.servico}</p>
-          </div>
-          <div className={styles.responseItem}>
-            <p className={styles.label}>Observações adicionais</p>
-            <p className={styles.value}>{lead.observacoes}</p>
-          </div>
+          {lead.respostas ? (
+            <>
+              <div className={styles.responseItem}>
+                <p className={styles.label}>Categoria</p>
+                <p className={styles.value}>{lead.respostas.categoria}</p>
+              </div>
+              {lead.respostas.tipoServico && (
+                <div className={styles.responseItem}>
+                  <p className={styles.label}>Tipo de Serviço</p>
+                  <p className={styles.value}>{lead.respostas.tipoServico}</p>
+                </div>
+              )}
+              {lead.respostas.btus && (
+                <div className={styles.responseItem}>
+                  <p className={styles.label}>Capacidade (BTUs)</p>
+                  <p className={styles.value}>{lead.respostas.btus}</p>
+                </div>
+              )}
+              {lead.respostas.possuiEquipamento && (
+                <div className={styles.responseItem}>
+                  <p className={styles.label}>Já possui equipamento?</p>
+                  <p className={styles.value}>{lead.respostas.possuiEquipamento}</p>
+                </div>
+              )}
+              {lead.respostas.costasACostas && (
+                <div className={styles.responseItem}>
+                  <p className={styles.label}>Instalação costas a costas?</p>
+                  <p className={styles.value}>{lead.respostas.costasACostas}</p>
+                </div>
+              )}
+              <div className={styles.responseItem}>
+                <p className={styles.label}>Cidade</p>
+                <p className={styles.value}>{lead.respostas.cidade || 'Não informado'}</p>
+              </div>
+              <div className={styles.responseItem}>
+                <p className={styles.label}>Bairro</p>
+                <p className={styles.value}>{lead.respostas.bairro || 'Não informado'}</p>
+              </div>
+              <div className={styles.responseItem}>
+                <p className={styles.label}>Urgência</p>
+                <p className={styles.value}>{lead.respostas.urgencia}</p>
+              </div>
+              <div className={styles.responseItem}>
+                <p className={styles.label}>Observações</p>
+                <p className={styles.value}>{lead.respostas.observacoes || 'Nenhuma'}</p>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className={styles.responseItem}>
+                <p className={styles.label}>Necessidade Principal</p>
+                <p className={styles.value}>{lead.servico}</p>
+              </div>
+              <div className={styles.responseItem}>
+                <p className={styles.label}>Observações</p>
+                <p className={styles.value}>{lead.observacoes}</p>
+              </div>
+            </>
+          )}
         </div>
       </section>
 
