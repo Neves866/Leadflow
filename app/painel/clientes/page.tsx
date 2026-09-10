@@ -1,5 +1,4 @@
 'use client';
-
 import styles from "./clientes.module.css";
 
 const clients = [

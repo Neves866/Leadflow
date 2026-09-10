@@ -4,6 +4,7 @@ import styles from "./painel.module.css";
 import { MOCK_LEADS, LeadStatus } from "@/lib/mocks";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";  
 
 export default function PainelPage() {
   const router = useRouter();
