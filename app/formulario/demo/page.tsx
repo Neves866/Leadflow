@@ -1,13 +1,15 @@
-'use client';
-
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './form.module.css';
+import { getCurrentOrganizationConfig, getFormConfig } from '@/lib/config';
 
 type Step = 'category' | 'details' | 'contact';
 
 export default function DemoForm() {
   const router = useRouter();
+  const orgConfig = getCurrentOrganizationConfig();
+  const formConfig = getFormConfig(orgConfig.slug, 'demo');
+
   const [step, setStep] = useState<Step>('category');
   const [formData, setFormData] = useState({
     category: '',
@@ -22,13 +24,6 @@ export default function DemoForm() {
     name: '',
     whatsapp: '',
   });
-
-  const categories = [
-    { id: 'ar', label: 'Ar-condicionado', icon: '❄️' },
-    { id: 'eletr', label: 'Instalações Elétricas', icon: '⚡' },
-    { id: 'seg', label: 'Segurança Eletrônica', icon: '🛡️' },
-    { id: 'auto', label: 'Automação Residencial', icon: '🏠' },
-  ];
 
   const handleCategorySelect = (catId: string, label: string) => {
     setFormData({ ...formData, category: label });
@@ -93,7 +88,7 @@ export default function DemoForm() {
             <h1 className={styles.title}>O que você precisa?</h1>
             <p className={styles.subtitle}>Selecione a categoria do serviço para começarmos.</p>
             <div className={styles.categoryGrid}>
-              {categories.map(cat => (
+              {orgConfig.services.map(cat => (
                 <button
                   key={cat.id}
                   className={styles.categoryCard}
@@ -107,103 +102,61 @@ export default function DemoForm() {
           </div>
         )}
 
-        {step === 'details' && (
+        {step === 'details' && formConfig && (
           <div className={styles.stepContent}>
             <h1 className={styles.title}>Detalhes do Serviço</h1>
             <p className={styles.subtitle}>Conte-nos mais sobre sua necessidade de {formData.category}.</p>
 
             <form className={styles.formGrid}>
-              {formData.category === 'Ar-condicionado' ? (
-                <>
-                  <div className={styles.field}>
-                    <label>Tipo de Serviço</label>
-                    <select
-                      value={formData.serviceType}
-                      onChange={e => setFormData({...formData, serviceType: e.target.value})}
-                    >
-                      <option value="">Selecione...</option>
-                      <option value="Instalação">Instalação</option>
-                      <option value="Manutenção">Manutenção</option>
-                      <option value="Higienização">Higienização</option>
-                    </select>
-                  </div>
-                  <div className={styles.field}>
-                    <label>Capacidade (BTUs)</label>
+              {formConfig.steps.find(s => s.id === 'details')?.fields.map(field => {
+                if (field.showWhen && formData.category !== field.showWhen.equals) {
+                  return null;
+                }
+
+                const value = (formData as any)[field.id];
+
+                if (field.type === 'select') {
+                  return (
+                    <div key={field.id} className={styles.field}>
+                      <label>{field.label}</label>
+                      <select
+                        value={value}
+                        onChange={e => setFormData({...formData, [field.id]: e.target.value})}
+                      >
+                        <option value="">Selecione...</option>
+                        {field.options?.map(opt => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  );
+                }
+
+                if (field.type === 'textarea') {
+                  return (
+                    <div key={field.id} className={styles.field}>
+                      <label>{field.label}</label>
+                      <textarea
+                        value={value}
+                        onChange={e => setFormData({...formData, [field.id]: e.target.value})}
+                        placeholder={field.placeholder}
+                      />
+                    </div>
+                  );
+                }
+
+                return (
+                  <div key={field.id} className={styles.field}>
+                    <label>{field.label}</label>
                     <input
-                      type="text"
-                      placeholder="Ex: 9000, 12000"
-                      value={formData.btus}
-                      onChange={e => setFormData({...formData, btus: e.target.value})}
+                      type={field.type}
+                      placeholder={field.placeholder}
+                      value={value}
+                      onChange={e => setFormData({...formData, [field.id]: e.target.value})}
                     />
                   </div>
-                  <div className={styles.field}>
-                    <label>Já possui equipamento?</label>
-                    <select
-                      value={formData.hasEquipment}
-                      onChange={e => setFormData({...formData, hasEquipment: e.target.value})}
-                    >
-                      <option value="">Selecione...</option>
-                      <option value="Sim">Sim</option>
-                      <option value="Não">Não</option>
-                    </select>
-                  </div>
-                  <div className={styles.field}>
-                    <label>Instalação costas a costas?</label>
-                    <select
-                      value={formData.backToBack}
-                      onChange={e => setFormData({...formData, backToBack: e.target.value})}
-                    >
-                      <option value="">Selecione...</option>
-                      <option value="Sim">Sim</option>
-                      <option value="Não">Não</option>
-                    </select>
-                  </div>
-                </>
-              ) : (
-                <div className={styles.field}>
-                  <label>Descreva brevemente o serviço</label>
-                  <textarea
-                    value={formData.notes}
-                    onChange={e => setFormData({...formData, notes: e.target.value})}
-                    placeholder="Como podemos te ajudar?"
-                  />
-                </div>
-              )}
-
-              <div className={styles.field}>
-                <label>Cidade</label>
-                <input
-                  type="text"
-                  value={formData.city}
-                  onChange={e => setFormData({...formData, city: e.target.value})}
-                />
-              </div>
-              <div className={styles.field}>
-                <label>Bairro</label>
-                <input
-                  type="text"
-                  value={formData.neighborhood}
-                  onChange={e => setFormData({...formData, neighborhood: e.target.value})}
-                />
-              </div>
-              <div className={styles.field}>
-                <label>Urgência</label>
-                <select
-                  value={formData.urgency}
-                  onChange={e => setFormData({...formData, urgency: e.target.value})}
-                >
-                  <option value="Baixa">Baixa</option>
-                  <option value="Média">Média</option>
-                  <option value="Alta">Alta</option>
-                </select>
-              </div>
-              <div className={styles.field}>
-                <label>Observações</label>
-                <textarea
-                  value={formData.notes}
-                  onChange={e => setFormData({...formData, notes: e.target.value})}
-                />
-              </div>
+                );
+              })}
 
               <div className={styles.navButtons}>
                 <button type="button" className={styles.btnSecondary} onClick={prevStep}>Voltar</button>
@@ -213,31 +166,24 @@ export default function DemoForm() {
           </div>
         )}
 
-        {step === 'contact' && (
+        {step === 'contact' && formConfig && (
           <div className={styles.stepContent}>
             <h1 className={styles.title}>Contato</h1>
             <p className={styles.subtitle}>Quase lá! Como podemos entrar em contato com você?</p>
 
             <form className={styles.formGrid} onSubmit={handleSubmit}>
-              <div className={styles.field}>
-                <label>Nome Completo</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={e => setFormData({...formData, name: e.target.value})}
-                />
-              </div>
-              <div className={styles.field}>
-                <label>WhatsApp</label>
-                <input
-                  type="tel"
-                  required
-                  placeholder="(00) 00000-0000"
-                  value={formData.whatsapp}
-                  onChange={e => setFormData({...formData, whatsapp: e.target.value})}
-                />
-              </div>
+              {formConfig.steps.find(s => s.id === 'contact')?.fields.map(field => (
+                <div key={field.id} className={styles.field}>
+                  <label>{field.label}</label>
+                  <input
+                    type={field.type}
+                    required={field.required}
+                    placeholder={field.placeholder}
+                    value={(formData as any)[field.id]}
+                    onChange={e => setFormData({...formData, [field.id]: e.target.value})}
+                  />
+                </div>
+              ))}
 
               <div className={styles.navButtons}>
                 <button type="button" className={styles.btnSecondary} onClick={prevStep}>Voltar</button>
