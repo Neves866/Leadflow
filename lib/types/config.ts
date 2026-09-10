@@ -1,4 +1,4 @@
-export type FieldType = 'text' | 'tel' | 'textarea' | 'select' | 'boolean';
+export type FieldType = 'text' | 'tel' | 'textarea' | 'select';
 
 export interface FormFieldConfig {
   id: string;

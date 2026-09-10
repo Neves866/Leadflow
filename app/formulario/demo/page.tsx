@@ -1,3 +1,5 @@
+'use client';
+
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './form.module.css';
@@ -109,7 +111,7 @@ export default function DemoForm() {
 
             <form className={styles.formGrid}>
               {formConfig.steps.find(s => s.id === 'details')?.fields.map(field => {
-                if (field.showWhen && formData.category !== field.showWhen.equals) {
+                if (field.showWhen && (formData as any)[field.showWhen.field] !== field.showWhen.equals) {
                   return null;
                 }
 
