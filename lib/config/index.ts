@@ -16,6 +16,16 @@ export function getFormConfig(orgSlug: string, formSlug: string): FormConfig | u
   return org.forms.find(f => f.slug === formSlug);
 }
 
+export function getFormConfigBySlug(formSlug: string) {
+  for (const org of Object.values(organizations)) {
+    const form = org.forms.find(f => f.slug === formSlug);
+    if (form) {
+      return { organization: org, form };
+    }
+  }
+  return undefined;
+}
+
 // Helper for the demo to get current (and only) config
 export function getCurrentOrganizationConfig(): OrganizationConfig {
   return iluminarConfig;

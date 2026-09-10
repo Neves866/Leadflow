@@ -17,7 +17,7 @@ export const iluminarConfig: OrganizationConfig = {
   forms: [
     {
       id: 'demo_form',
-      slug: 'demo',
+      slug: 'iluminar-orcamento',
       steps: [
         {
           id: 'details',
@@ -34,7 +34,7 @@ export const iluminarConfig: OrganizationConfig = {
                 { label: 'Higienização', value: 'Higienização' },
               ],
               order: 1,
-              showWhen: { field: 'category', equals: 'Ar-condicionado' },
+              showWhen: { field: 'serviceId', equals: 'ar' },
             },
             {
               id: 'btus',
@@ -42,7 +42,7 @@ export const iluminarConfig: OrganizationConfig = {
               label: 'Capacidade (BTUs)',
               placeholder: 'Ex: 9000, 12000',
               order: 2,
-              showWhen: { field: 'category', equals: 'Ar-condicionado' },
+              showWhen: { field: 'serviceId', equals: 'ar' },
             },
             {
               id: 'hasEquipment',
@@ -53,7 +53,7 @@ export const iluminarConfig: OrganizationConfig = {
                 { label: 'Não', value: 'Não' },
               ],
               order: 3,
-              showWhen: { field: 'category', equals: 'Ar-condicionado' },
+              showWhen: { field: 'serviceId', equals: 'ar' },
             },
             {
               id: 'backToBack',
@@ -64,7 +64,7 @@ export const iluminarConfig: OrganizationConfig = {
                 { label: 'Não', value: 'Não' },
               ],
               order: 4,
-              showWhen: { field: 'category', equals: 'Ar-condicionado' },
+              showWhen: { field: 'serviceId', equals: 'ar' },
             },
             {
               id: 'city',

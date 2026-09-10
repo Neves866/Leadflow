@@ -98,6 +98,7 @@ Demonstração visual e navegável de ponta a ponta de um SaaS de captação e g
 ## Pendências
 - [x] Fase D: Validação final build + dev (Concluída).
 - [x] Transformação para SaaS Multiempresa: Etapa 1 - Desacoplamento de Configuração (incluindo ajustes técnicos de renderização e tipos).
+- [x] Transformação para SaaS Multiempresa: Etapa 2 - Primeiro Formulário Público Genérico.
 
 ## Próxima tarefa EXATA
 Apresentação do produto.

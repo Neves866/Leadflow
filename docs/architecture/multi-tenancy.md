@@ -22,15 +22,21 @@ Forms are defined as a sequence of steps. Each step contains a set of fields. Fi
 
 ## Current State & Evolution
 
-### Phase 1: Decoupling (Current)
+### Phase 1: Decoupling (Concluded)
 - Move hardcoded data to TypeScript configuration files.
 - Interface reads from this configuration.
 - Iluminar is the only configuration.
 
-### Phase 2: Dynamic Rendering (Next)
+### Phase 2: Generic Public Forms (Current)
+- Implementation of the `/f/[slug]` public route.
+- Forms are discovered via a globally unique `FormConfig.slug`.
+- Logic is decoupled from organization names, using stable IDs for services and fields.
+- A generic `FormRenderer` handles rendering based on the configuration.
+
+### Phase 3: Dynamic Rendering (Next)
 - Transition from semi-dynamic to fully dynamic form rendering.
 
-### Phase 3: Persistence (Future)
+### Phase 4: Persistence (Future)
 - Migrate configurations from TypeScript files to a database (Supabase).
 - Implement organization-based data isolation.
 - Add Auth and multi-tenant API endpoints.
