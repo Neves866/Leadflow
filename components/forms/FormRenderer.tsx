@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { OrganizationConfig, FormConfig } from '@/lib/types/config';
-import styles from '@/app/formulario/demo/form.module.css';
+import styles from './FormRenderer.module.css';
 
 interface FormRendererProps {
   orgConfig: OrganizationConfig;
@@ -39,8 +39,13 @@ export default function FormRenderer({ orgConfig, formConfig }: FormRendererProp
     const selectedService = orgConfig.services.find(s => s.id === formData.serviceId);
     const serviceLabel = selectedService?.label || formData.category || 'Não informado';
 
-    const servicoDesc = formData.serviceId === 'ar'
-      ? `${formData.serviceType || ''} (${formData.btus || ''} BTUs)`
+    // Generic composition: the org config may define a template with
+    // {fieldId} placeholders resolved from the form answers.
+    const resolveServicoTemplate = (template: string): string =>
+      template.replace(/\{(\w+)\}/g, (_match, fieldId: string) => formData[fieldId] || '');
+
+    const servicoDesc = selectedService?.servicoTemplate
+      ? resolveServicoTemplate(selectedService.servicoTemplate)
       : serviceLabel;
 
     const newLead = {

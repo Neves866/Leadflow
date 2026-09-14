@@ -9,14 +9,14 @@ export const iluminarConfig: OrganizationConfig = {
     secondaryColor: '#6c757d',
   },
   services: [
-    { id: 'ar', label: 'Ar-condicionado', icon: '❄️' },
+    { id: 'ar', label: 'Ar-condicionado', icon: '❄️', servicoTemplate: '{serviceType} ({btus} BTUs)' },
     { id: 'eletr', label: 'Instalações Elétricas', icon: '⚡' },
     { id: 'seg', label: 'Segurança Eletrônica', icon: '🛡️' },
     { id: 'auto', label: 'Automação Residencial', icon: '🏠' },
   ],
   forms: [
     {
-      id: 'demo_form',
+      id: 'form_iluminar_orcamento',
       slug: 'iluminar-orcamento',
       steps: [
         {

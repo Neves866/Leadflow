@@ -25,8 +25,3 @@ export function getFormConfigBySlug(formSlug: string) {
   }
   return undefined;
 }
-
-// Helper for the demo to get current (and only) config
-export function getCurrentOrganizationConfig(): OrganizationConfig {
-  return iluminarConfig;
-}

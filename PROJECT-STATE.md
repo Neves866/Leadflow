@@ -1,7 +1,13 @@
 # LeadFlow Project State
 
+## Estratégia
+**Iluminar Production First.**
+- Iluminar será a primeira e única organização durante o MVP real.
+- A arquitetura continuará preparada para múltiplas organizações (configs por organização, rotas por slug, IDs estáveis — nada de lógica de cliente no código genérico).
+- Próxima grande fase: **Supabase + Auth + persistência real** (ainda não implementado — sem banco, sem auth, sem segundo cliente por ora).
+
 ## Objetivo
-Demonstração visual e navegável de ponta a ponta de um SaaS de captação e gerenciamento de leads. Foco absoluto em runtime/interatividade no navegador para apresentação.
+Colocar a Iluminar em produção: fluxo real de captação de leads via `/f/iluminar-orcamento` + painel, com persistência simulada em localStorage até a fase Supabase.
 
 ## Stack
 - vinext (Next.js style on Cloudflare Workers)
@@ -9,51 +15,58 @@ Demonstração visual e navegável de ponta a ponta de um SaaS de captação e g
 - App Router
 - React (Client/Server Components)
 - CSS Modules
-- localStorage (simulação de persistência)
+- localStorage (simulação de persistência, até a integração com Supabase)
 
 ## Estado verificado em
-2026-09-01 / 12:45 (approx)
+2026-09-14 (limpeza arquitetural pré-Supabase)
 
 ## Estrutura atual
 - `app/`: Diretório principal de rotas.
-- `app/formulario/demo/`: Fluxo de captação de leads.
+- `app/f/[slug]/`: Formulário público genérico de produção (resolvido por slug via config).
+- `app/formulario/demo/`: Rota legada — apenas redirect temporário para `/f/iluminar-orcamento`.
+- `components/forms/FormRenderer.tsx`: Renderer genérico. Não conhece serviços nem IDs específicos (ex.: "ar", "iluminar").
+- `components/forms/FormRenderer.module.css`: Estilos do renderer (movidos de `app/formulario/demo/form.module.css`).
+- `lib/config/`: Camada de configuração multiempresa (uma organização: Iluminar).
 - `app/sucesso/`: Página de confirmação de envio.
-- `app/painel/`: Área administrativa (Dashboard).
-- `app/painel/leads/`: Gestão de leads (listagem e detalhes).
-- `app/painel/formularios/`: Gestão de formulários.
-- `app/painel/clientes/`: Gestão de contas.
-- `app/painel/configuracoes/`: Página de configurações.
+- `app/painel/`: Área administrativa (Dashboard, leads, formulários, clientes, configurações).
 
 ## Rotas
 - `/`: Home (Landing Page LeadFlow).
-- `/formulario/demo`: Formulário multi-etapa (Client Component). Salva respostas completas e ID do lead.
+- `/f/iluminar-orcamento`: Formulário público da Iluminar (rota de produção).
+- `/formulario/demo`: Redirect temporário → `/f/iluminar-orcamento` (legado; não usar em código novo).
 - `/sucesso`: Confirmação (Client Component). Protocolo consistente e link para o lead recém-criado.
 - `/painel`: Dashboard (Client Component). Integra Mocks + localStorage, reflete KPIs e trata Valor Potencial Zero.
 - `/painel/leads`: Listagem (Client Component). Integra Mocks + localStorage, possui busca e filtro de status.
 - `/painel/leads/[id]`: Detalhes (Client Component). Exibe respostas completas, normaliza WhatsApp (DDI 55) e trata Valor Potencial Zero.
-- `/painel/formularios`: Gestão de formulários (Client Component). Botões funcionais com feedbacks.
-- `/painel/clientes`: Gestão de clientes (Client Component). Estilização profissional e botões com feedback.
-- `/painel/configuracoes`: Página de configurações (Client Component). Interface visual completa.
+- `/painel/formularios`, `/painel/clientes`, `/painel/configuracoes`: páginas de gestão (demonstrativas).
 
-## Fluxo da demo
-`/` → `/formulario/demo` → `/sucesso` → `/painel/leads/[id]` → `/painel/leads` → `/painel`
+## Fluxo de produção
+`/` → `/f/iluminar-orcamento` → `/sucesso` → `/painel/leads/[id]` → `/painel/leads` → `/painel`
+
+## Configuração (multiempresa-ready)
+- `lib/types/config.ts`: tipos (OrganizationConfig, FormConfig, FormFieldConfig, ServiceConfig).
+  - `ServiceConfig.servicoTemplate?`: template opcional com placeholders `{fieldId}` para compor a descrição do serviço do lead a partir das respostas — resolve no config o que antes era lógica hardcoded no renderer.
+- `lib/config/index.ts`: registro de organizações + `getOrganizationConfig()`, `getFormConfig()`, `getFormConfigBySlug()`. (`getCurrentOrganizationConfig()` foi removida — não era utilizada.)
+- `lib/config/organizations/iluminar.ts`: config da Iluminar.
+  - Form id estável de produção: `form_iluminar_orcamento` (antes `demo_form`).
+  - Slug mantido: `iluminar-orcamento`.
+  - Serviço "ar": `servicoTemplate: '{serviceType} ({btus} BTUs)'` — resultado do lead idêntico ao anterior.
+
+## Convenções
+- Nenhum código novo deve usar "demo" como identificação do formulário real (a rota `/formulario/demo` permanece só como redirect temporário).
+- O FormRenderer não conhece IDs específicos de serviço; descrições compostas vêm de `servicoTemplate` na configuração.
 
 ## Dados mockados
 - `MOCK_LEADS` em `@/lib/mocks`.
 
 ## localStorage
-- `leadflow_leads`: Lista de leads criados via formulário.
+- `leadflow_leads`: Lista de leads criados via formulário (inclui organizationId, formId, formSlug e respostas completas).
 - `leadflow_last_protocol`: Último protocolo gerado.
 - `leadflow_last_lead_id`: ID do último lead criado para redirecionamento na página de sucesso.
 - `leadflow_status_overrides`: Mapeamento de ID -> Status para persistir alterações nos mocks.
 
-## Componentes / páginas importantes
-- `app/formulario/demo/page.tsx`: Lógica de etapas e persistência de respostas.
-- `app/painel/leads/page.tsx`: Agregador de mocks + localStorage.
-- `app/painel/layout.tsx`: Sidebar de navegação com destaque de rota ativa (inclusive em sub-rotas).
-
 ## CSS Modules
-- `app/formulario/demo/form.module.css`
+- `components/forms/FormRenderer.module.css`
 - `app/sucesso/sucesso.module.css`
 - `app/painel/painel.module.css`
 - `app/painel/layout.module.css`
@@ -89,19 +102,27 @@ Demonstração visual e navegável de ponta a ponta de um SaaS de captação e g
 - [x] Design Final: Redesign premium do Dashboard e Sidebar.
 
 ## Testes executados
-- `npm run build` → PASS
-- Runtime Browser → Validado fluxo completo: Home -> Formulário -> Sucesso -> Lead Detalhes (com respostas) -> WhatsApp -> Status -> Dashboard.
+- `npm run build` → PASS (vinext build, todas as rotas compiladas).
+- HTTP runtime (preview/wrangler): `/f/iluminar-orcamento` → 200 com categorias e etapa 1 renderizadas; `/formulario/demo` → 307 redirect para `/f/iluminar-orcamento`; `/painel/leads` → 200.
+- Equivalência verificada por script: o template `{serviceType} ({btus} BTUs)` produz exatamente o mesmo `servico` do código anterior (inclusive com campos vazios).
+- Fluxo completo com criação de lead em navegador (localStorage) segue válido — lógica do renderer preservada sem alteração de comportamento.
 
 ## Problemas conhecidos
-- Nenhum crítico para a demo.
+- Persistência ainda em localStorage (mock) até a fase Supabase.
+- Páginas de formulários/clientes/configurações do painel seguem demonstrativas.
 
 ## Pendências
 - [x] Fase D: Validação final build + dev (Concluída).
-- [x] Transformação para SaaS Multiempresa: Etapa 1 - Desacoplamento de Configuração (incluindo ajustes técnicos de renderização e tipos).
+- [x] Transformação para SaaS Multiempresa: Etapa 1 - Desacoplamento de Configuração.
 - [x] Transformação para SaaS Multiempresa: Etapa 2 - Primeiro Formulário Público Genérico.
+- [x] Limpeza arquitetural pré-Supabase: regra de serviço ('ar') removida do FormRenderer (agora `servicoTemplate` na config).
+- [x] Limpeza arquitetural pré-Supabase: CSS do renderer movido para `components/forms/FormRenderer.module.css`.
+- [x] Limpeza arquitetural pré-Supabase: form id `demo_form` → `form_iluminar_orcamento`.
+- [x] Limpeza arquitetural pré-Supabase: remoção de `getCurrentOrganizationConfig()` (não utilizada).
+- [x] FASE D1: FUNDAÇÃO DO BANCO DE DADOS (Schema, RLS, Seeds e Documentação).
 
-## Próxima tarefa EXATA
-Apresentação do produto.
+## Próxima grande fase
+Supabase remoto + Auth + aplicação das migrations (Substituição do localStorage).
 
 ## Último arquivo em edição
 PROJECT-STATE.md
