@@ -1,5 +1,5 @@
 -- LeadFlow Foundation Schema
--- FASE D1: FUNDAÇÃO DO BANCO DE DADOS (Hardened & Patched Version)
+-- FASE D1: FUNDAÇÃO DO BANCO DE DADOS (Final Patched Version)
 
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
@@ -8,6 +8,9 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- 0. PRIVATE SCHEMA & SECURITY HELPERS
 -- -----------------------------------------------------------------------------
 CREATE SCHEMA private;
+
+-- Grant usage to authenticated role so they can access the functions inside
+GRANT USAGE ON SCHEMA private TO authenticated;
 
 -- Helper to update updated_at timestamp
 CREATE OR REPLACE FUNCTION private.set_updated_at()
@@ -55,12 +58,17 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
 
--- Revoke execute from public for safety, grant to authenticated
-REVOKE EXECUTE ON FUNCTION private.is_member_of(uuid) FROM PUBLIC;
+-- -----------------------------------------------------------------------------
+-- SECURITY GRANTS FOR HELPERS
+-- -----------------------------------------------------------------------------
+
+-- Revoke EXECUTE from PUBLIC for everything in private schema
+REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA private FROM PUBLIC;
+REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA private FROM authenticated;
+
+-- Grant EXECUTE ONLY for authorization helpers to authenticated role
 GRANT EXECUTE ON FUNCTION private.is_member_of(uuid) TO authenticated;
-REVOKE EXECUTE ON FUNCTION private.is_org_admin(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION private.is_org_admin(uuid) TO authenticated;
-REVOKE EXECUTE ON FUNCTION private.is_org_owner(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION private.is_org_owner(uuid) TO authenticated;
 
 -- -----------------------------------------------------------------------------
@@ -228,7 +236,8 @@ CREATE TABLE leads (
     updated_at timestamptz DEFAULT now(),
 
     -- Composite Foreign Keys ensuring multi-tenant integrity
-    FOREIGN KEY (contact_id, organization_id) REFERENCES contacts(id, organization_id) ON DELETE CASCADE,
+    -- changed CASCADE to RESTRICT for contacts to preserve lead history
+    FOREIGN KEY (contact_id, organization_id) REFERENCES contacts(id, organization_id) ON DELETE RESTRICT,
     FOREIGN KEY (service_id, organization_id) REFERENCES services(id, organization_id) ON DELETE RESTRICT,
     FOREIGN KEY (form_id, organization_id) REFERENCES forms(id, organization_id) ON DELETE RESTRICT,
     FOREIGN KEY (pipeline_id, organization_id) REFERENCES pipelines(id, organization_id) ON DELETE RESTRICT,
@@ -258,7 +267,8 @@ CREATE TABLE form_submissions (
     metadata jsonb,
     created_at timestamptz DEFAULT now(),
 
-    FOREIGN KEY (form_id, organization_id) REFERENCES forms(id, organization_id) ON DELETE CASCADE,
+    -- Preserve submissions even if form is deleted (forms should be deactivated)
+    FOREIGN KEY (form_id, organization_id) REFERENCES forms(id, organization_id) ON DELETE RESTRICT,
     FOREIGN KEY (lead_id, organization_id) REFERENCES leads(id, organization_id) ON DELETE RESTRICT
 );
 
@@ -274,7 +284,8 @@ CREATE TABLE activities (
     data jsonb,
     created_at timestamptz DEFAULT now(),
 
-    FOREIGN KEY (lead_id, organization_id) REFERENCES leads(id, organization_id) ON DELETE CASCADE
+    -- Preserve activities even if lead is deleted (hard delete blocked anyway)
+    FOREIGN KEY (lead_id, organization_id) REFERENCES leads(id, organization_id) ON DELETE RESTRICT
 );
 
 -- -----------------------------------------------------------------------------
@@ -282,30 +293,16 @@ CREATE TABLE activities (
 -- -----------------------------------------------------------------------------
 
 -- 1. updated_at Trigger
-CREATE OR REPLACE FUNCTION private.set_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = now();
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
+-- (Definition is already in private.set_updated_at above)
 
--- 2. Partial SET NULL Trigger for Optional Relations
+-- 2. Partial SET NULL Triggers
 -- Since Composite FKs with ON DELETE SET NULL null all columns,
--- we use a trigger to null only the reference ID.
-CREATE OR REPLACE FUNCTION private.handle_optional_references()
-RETURNS TRIGGER AS $$
-BEGIN
-    -- This is a generic cleanup function. We apply specific ones below.
-    RETURN OLD;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
+-- we use triggers to null only the reference ID, keeping organization_id intact.
 
--- Specific Cleanup Triggers
 CREATE OR REPLACE FUNCTION private.cleanup_service_deletion()
 RETURNS TRIGGER AS $$
 BEGIN
-    UPDATE public.leads SET service_id = NULL WHERE service_id = OLD.id;
+    UPDATE public.leads SET service_id = NULL WHERE service_id = OLD.id AND organization_id = OLD.organization_id;
     RETURN OLD;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
@@ -313,7 +310,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
 CREATE OR REPLACE FUNCTION private.cleanup_form_deletion()
 RETURNS TRIGGER AS $$
 BEGIN
-    UPDATE public.leads SET form_id = NULL WHERE form_id = OLD.id;
+    UPDATE public.leads SET form_id = NULL WHERE form_id = OLD.id AND organization_id = OLD.organization_id;
     RETURN OLD;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
@@ -321,7 +318,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
 CREATE OR REPLACE FUNCTION private.cleanup_member_deletion()
 RETURNS TRIGGER AS $$
 BEGIN
-    UPDATE public.leads SET assigned_user_id = NULL WHERE assigned_user_id = OLD.user_id;
+    UPDATE public.leads SET assigned_user_id = NULL WHERE assigned_user_id = OLD.user_id AND organization_id = OLD.organization_id;
     RETURN OLD;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
@@ -344,6 +341,28 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER tr_cleanup_services BEFORE DELETE ON services FOR EACH ROW EXECUTE FUNCTION private.cleanup_service_deletion();
 CREATE TRIGGER tr_cleanup_forms BEFORE DELETE ON forms FOR EACH ROW EXECUTE FUNCTION private.cleanup_form_deletion();
 CREATE TRIGGER tr_cleanup_members BEFORE DELETE ON organization_members FOR EACH ROW EXECUTE FUNCTION private.cleanup_member_deletion();
+
+-- -----------------------------------------------------------------------------
+-- EXPLICIT TABLE GRANTS
+-- -----------------------------------------------------------------------------
+
+-- 1. Revoke all from anon (Public forms use LeadFlow API, not direct DB access)
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM anon;
+
+-- 2. Explicit grants for authenticated users
+GRANT SELECT, UPDATE ON organizations TO authenticated;
+GRANT SELECT, UPDATE ON profiles TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON organization_members TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON services TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON forms TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON form_steps TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON form_fields TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON pipelines TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON pipeline_stages TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON contacts TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON leads TO authenticated;
+GRANT SELECT ON form_submissions TO authenticated;
+GRANT SELECT, INSERT ON activities TO authenticated;
 
 -- -----------------------------------------------------------------------------
 -- MULTI-TENANCY & RLS
@@ -372,7 +391,7 @@ CREATE POLICY "Admins can update their organizations" ON organizations
     FOR UPDATE USING (private.is_org_admin(id));
 
 -- Organization Members Policies
--- Fix: Avoid recursion by using helper. Members view memberships of orgs they belong to.
+-- Fix: Avoid recursion by using helper.
 CREATE POLICY "Members can view their org memberships" ON organization_members
     FOR SELECT USING (private.is_member_of(organization_id));
 
@@ -384,11 +403,11 @@ CREATE POLICY "Owners can manage all memberships" ON organization_members
 CREATE POLICY "Admins can manage members" ON organization_members
     FOR ALL USING (
         private.is_org_admin(organization_id) AND
-        (role = 'member') -- Only allow managing 'member' role
+        (role = 'member')
     )
     WITH CHECK (
         private.is_org_admin(organization_id) AND
-        (role = 'member') -- Prevent promoting to admin/owner
+        (role = 'member')
     );
 
 -- Profiles Policies
@@ -406,18 +425,12 @@ CREATE POLICY "Users can update their own profile" ON profiles
     FOR UPDATE USING (id = auth.uid());
 
 -- Configuration Policies (Services, Forms, Pipelines, Stages)
--- SELECT: Any member
--- INSERT/UPDATE/DELETE: Owner/Admin
-
--- Services
 CREATE POLICY "Members can view services" ON services FOR SELECT USING (private.is_member_of(organization_id));
 CREATE POLICY "Admins can manage services" ON services FOR ALL USING (private.is_org_admin(organization_id));
 
--- Forms
 CREATE POLICY "Members can view forms" ON forms FOR SELECT USING (private.is_member_of(organization_id));
 CREATE POLICY "Admins can manage forms" ON forms FOR ALL USING (private.is_org_admin(organization_id));
 
--- Form Steps
 CREATE POLICY "Members can view form steps" ON form_steps FOR SELECT USING (
     EXISTS (SELECT 1 FROM forms f WHERE f.id = form_steps.form_id AND private.is_member_of(f.organization_id))
 );
@@ -425,7 +438,6 @@ CREATE POLICY "Admins can manage form steps" ON form_steps FOR ALL USING (
     EXISTS (SELECT 1 FROM forms f WHERE f.id = form_steps.form_id AND private.is_org_admin(f.organization_id))
 );
 
--- Form Fields
 CREATE POLICY "Members can view form fields" ON form_fields FOR SELECT USING (
     EXISTS (SELECT 1 FROM form_steps fs JOIN forms f ON fs.form_id = f.id WHERE fs.id = form_fields.step_id AND private.is_member_of(f.organization_id))
 );
@@ -433,11 +445,9 @@ CREATE POLICY "Admins can manage form fields" ON form_fields FOR ALL USING (
     EXISTS (SELECT 1 FROM form_steps fs JOIN forms f ON fs.form_id = f.id WHERE fs.id = form_fields.step_id AND private.is_org_admin(f.organization_id))
 );
 
--- Pipelines
 CREATE POLICY "Members can view pipelines" ON pipelines FOR SELECT USING (private.is_member_of(organization_id));
 CREATE POLICY "Admins can manage pipelines" ON pipelines FOR ALL USING (private.is_org_admin(organization_id));
 
--- Pipeline Stages
 CREATE POLICY "Members can view pipeline stages" ON pipeline_stages FOR SELECT USING (
     EXISTS (SELECT 1 FROM pipelines p WHERE p.id = pipeline_stages.pipeline_id AND private.is_member_of(p.organization_id))
 );
@@ -446,18 +456,14 @@ CREATE POLICY "Admins can manage pipeline stages" ON pipeline_stages FOR ALL USI
 );
 
 -- CRM Policies (Contacts, Leads)
--- SELECT/INSERT/UPDATE/DELETE: Any member
-
 CREATE POLICY "Members can manage contacts" ON contacts FOR ALL USING (private.is_member_of(organization_id));
 CREATE POLICY "Members can manage leads" ON leads FOR ALL USING (private.is_member_of(organization_id));
 
 -- Form Submissions Policies
--- Immutable: Only SELECT for members. INSERT handled by service_role.
 CREATE POLICY "Members can view submissions" ON form_submissions
     FOR SELECT USING (private.is_member_of(organization_id));
 
 -- Activities Policies
--- SELECT/INSERT for members. No UPDATE/DELETE.
 CREATE POLICY "Members can view activities" ON activities
     FOR SELECT USING (private.is_member_of(organization_id));
 

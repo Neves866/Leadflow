@@ -66,10 +66,21 @@ All security checks are performed by functions in a **private schema**, configur
 | **Submissions** | ✅ | ❌ | ❌ | ❌ | **Immutable** |
 | **Activities** | ✅ | ✅ | ✅ | ✅ | **Append-only** (No Update/Delete) |
 
+### Authorization Layers
+The system uses two complementary layers of security:
+1. **Grants**: Explicitly define which roles (`authenticated`, `anon`) can execute which SQL operations on tables. `anon` has no direct access to CRM/Config tables.
+2. **RLS**: Determines exactly which rows within a table can be accessed based on the authenticated user's organization membership.
+
 ### Public Forms
 The public browser **cannot** insert directly into the database.
 `Public Form` $\rightarrow$ `LeadFlow API` $\rightarrow$ `Backend Validation` $\rightarrow$ `Database Insert`.
 The `organization_id` is resolved on the server via the form slug.
+
+## Data Preservation
+To ensure historical accuracy:
+- **Immutability**: `form_submissions` and `activities` are immutable.
+- **Hard Delete Protection**: `ON DELETE RESTRICT` is used for leads with history and forms with submissions. Data should be logically deactivated (via `active` flag) rather than physically deleted.
+- **Future**: Soft delete (`archived_at`) may be implemented in later phases.
 
 ## Initial Tenant: Iluminar
 Iluminar is the first production tenant. The seed data provides the specific services and pipeline used in the MVP.
