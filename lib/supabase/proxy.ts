@@ -1,14 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
 
-export function validateNextPath(path: string): string {
-  // Accept only internal paths starting with '/' and NOT '//'
-  if (path.startsWith('/') && !path.startsWith('//')) {
-    return path;
-  }
-  return '/painel';
-}
-
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({
     request: {
@@ -24,17 +16,34 @@ export async function updateSession(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet, headers) {
+          // 1. Update request cookies so subsequent calls in the same request see the update
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          );
+
+          // 2. Recreate the response to ensure it carries updated request state
+          response = NextResponse.next({
+            request,
+          });
+
+          // 3. Copy updated cookies to the response
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options)
           );
+
+          // 4. Preserve headers provided by @supabase/ssr (e.g. for session refresh)
+          if (headers) {
+            Object.entries(headers).forEach(([key, value]) =>
+              response.headers.set(key, value)
+            );
+          }
         },
       },
     }
   );
 
-  // SECURITY: Use getUser() or getClaims() instead of getSession() for server-side authorization
-  // getUser() is the most secure as it validates the JWT with the Supabase Auth server
+  // SECURITY: Use getUser() instead of getSession() for server-side authorization
   const { data: { user }, error } = await supabase.auth.getUser();
 
   return {
@@ -43,4 +52,26 @@ export async function updateSession(request: NextRequest) {
     error,
     response,
   };
+}
+
+/**
+ * Helper to create a redirect response that preserves
+ * session cookies and headers from the Supabase response.
+ */
+export function createRedirectResponse(url: string, baseResponse: NextResponse) {
+  const response = NextResponse.redirect(url);
+
+  // Copy cookies from the baseResponse (which contains updated session)
+  baseResponse.cookies.getAll().forEach(cookie => {
+    response.cookies.set(cookie.name, cookie.value);
+  });
+
+  // Copy relevant headers
+  baseResponse.headers.forEach((value, key) => {
+    if (key.toLowerCase().includes('supabase') || key.toLowerCase().includes('auth')) {
+      response.headers.set(key, value);
+    }
+  });
+
+  return response;
 }

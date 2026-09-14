@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter, useSearchParams } from 'next/navigation';
 import styles from './login.module.css';
+import { getSafeNextPath } from '@/lib/auth/redirect';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -30,11 +31,9 @@ export default function LoginPage() {
         throw authError;
       }
 
-      // Security check for 'next' parameter to prevent open redirects
+      // Security check for 'next' parameter using centralized helper
       const next = searchParams.get('next');
-      const safeNext = (next && next.startsWith('/') && !next.startsWith('//'))
-        ? next
-        : '/painel';
+      const safeNext = getSafeNextPath(next);
 
       router.push(safeNext);
       router.refresh();
