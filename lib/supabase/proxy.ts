@@ -61,14 +61,16 @@ export async function updateSession(request: NextRequest) {
 export function createRedirectResponse(url: string, baseResponse: NextResponse) {
   const response = NextResponse.redirect(url);
 
-  // Copy cookies from the baseResponse (which contains updated session)
-  baseResponse.cookies.getAll().forEach(cookie => {
-    response.cookies.set(cookie.name, cookie.value);
+  // Copy ALL cookies with full options from the baseResponse
+  baseResponse.cookies.getAll().forEach((cookie) => {
+    response.cookies.set(cookie.name, cookie.value, cookie.options);
   });
 
-  // Copy relevant headers
+  // Copy all headers from baseResponse EXCEPT location and set-cookie
+  // (cookies are already handled by response.cookies.set)
   baseResponse.headers.forEach((value, key) => {
-    if (key.toLowerCase().includes('supabase') || key.toLowerCase().includes('auth')) {
+    const lowerKey = key.toLowerCase();
+    if (lowerKey !== 'location' && lowerKey !== 'set-cookie') {
       response.headers.set(key, value);
     }
   });

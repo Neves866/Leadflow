@@ -6,8 +6,12 @@ export function getSafeNextPath(value: string | null | undefined): string {
     return '/painel';
   }
 
-  // Must be within /painel routes to prevent access to other areas via 'next'
-  if (!value.startsWith('/painel')) {
+  // Must be strictly /painel or start with /painel/ or /painel?
+  const isExactPainel = value === '/painel';
+  const isPainelSubPath = value.startsWith('/painel/');
+  const isPainelQuery = value.startsWith('/painel?');
+
+  if (!isExactPainel && !isPainelSubPath && !isPainelQuery) {
     return '/painel';
   }
 
