@@ -31,22 +31,24 @@ export default function LeadsPage() {
           .from('leads')
           .select(`
             id,
+            created_at,
+            potential_value,
             source,
-            valor_potencial,
             contacts ( name ),
-            services ( label ),
+            services ( name ),
             pipeline_stages ( name )
-          `);
+          `)
+          .order('created_at', { ascending: false });
 
         if (error) throw error;
 
         const mappedLeads: Lead[] = data.map(lead => ({
           id: lead.id,
           nome: (lead.contacts as any)?.name || 'Sem nome',
-          servico: (lead.services as any)?.label || 'Sem serviço',
+          servico: (lead.services as any)?.name || 'Sem serviço',
           origem: lead.source || 'Não informada',
           status: (lead.pipeline_stages as any)?.name || 'Novo',
-          valorPotencial: lead.valor_potencial || 0,
+          valorPotencial: lead.potential_value || 0,
         }));
 
         setLeads(mappedLeads);

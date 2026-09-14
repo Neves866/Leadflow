@@ -19,19 +19,20 @@ export async function POST(
     // 1. Find the form and organization
     const { data: form, error: formError } = await supabase
       .from('forms')
-      .select('id, organization_id')
+      .select('id, organization_id, active')
       .eq('slug', slug)
       .single();
 
-    if (formError || !form) {
-      return NextResponse.json({ error: 'Form not found' }, { status: 404 });
+    if (formError || !form || !form.active) {
+      return NextResponse.json({ error: 'Form not found or inactive' }, { status: 404 });
     }
 
     const orgId = form.organization_id;
 
     // 2. Contact Management
     const name = answers.name;
-    const phone = answers.whatsapp;
+    const rawPhone = answers.whatsapp || '';
+    const phone = rawPhone.replace(/\D/g, '');
 
     if (!name || !phone) {
       return NextResponse.json({ error: 'Name and WhatsApp are required' }, { status: 400 });
@@ -59,7 +60,20 @@ export async function POST(
       contact = newContact;
     }
 
-    // 3. Pipeline and Stage
+    // 3. Service Resolution (serviceId is the KEY, e.g., 'ar')
+    const { data: service, error: serviceError } = await supabase
+      .from('services')
+      .select('id')
+      .eq('organization_id', orgId)
+      .eq('key', serviceId)
+      .eq('active', true)
+      .single();
+
+    if (serviceError || !service) {
+      return NextResponse.json({ error: 'Service not found or inactive' }, { status: 404 });
+    }
+
+    // 4. Pipeline and Stage
     const { data: pipeline, error: pipeError } = await supabase
       .from('pipelines')
       .select('id')
@@ -82,17 +96,17 @@ export async function POST(
       return NextResponse.json({ error: 'Initial stage "novo" not found' }, { status: 500 });
     }
 
-    // 4. Protocol Generation
+    // 5. Protocol Generation
     const date = new Date();
     const protocol = `LF-${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    // 5. Lead Creation
+    // 6. Lead Creation
     const { data: lead, error: leadError } = await supabase
       .from('leads')
       .insert({
         organization_id: orgId,
         contact_id: contact.id,
-        service_id: serviceId,
+        service_id: service.id,
         form_id: form.id,
         pipeline_id: pipeline.id,
         stage_id: stage.id,
@@ -107,7 +121,7 @@ export async function POST(
 
     if (leadError) throw leadError;
 
-    // 6. Submission Recording
+    // 7. Submission Recording
     const { error: subError } = await supabase
       .from('form_submissions')
       .insert({
@@ -119,7 +133,7 @@ export async function POST(
 
     if (subError) throw subError;
 
-    // 7. Activity Log
+    // 8. Activity Log
     const { error: actError } = await supabase
       .from('activities')
       .insert({

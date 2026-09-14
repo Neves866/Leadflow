@@ -41,13 +41,15 @@ export default function LeadDetailsPage() {
           .from('leads')
           .select(`
             id,
+            organization_id,
+            pipeline_id,
             created_at,
-            valor_potencial,
+            potential_value,
             notes,
             urgency,
             source,
             contacts ( name, phone, email ),
-            services ( label ),
+            services ( name ),
             pipeline_stages ( name ),
             form_submissions ( answers )
           `)
@@ -72,11 +74,11 @@ export default function LeadDetailsPage() {
           nome: (leadData.contacts as any)?.name || 'Sem nome',
           telefone: (leadData.contacts as any)?.phone || '',
           email: (leadData.contacts as any)?.email || '',
-          servico: (leadData.services as any)?.label || 'Sem serviço',
+          servico: (leadData.services as any)?.name || 'Sem serviço',
           origem: leadData.source || 'Não informada',
           urgencia: leadData.urgency || 'Média',
           data: new Date(leadData.created_at).toLocaleDateString('pt-BR'),
-          valorPotencial: leadData.valor_potencial || 0,
+          valorPotencial: leadData.potential_value || 0,
           status: (leadData.pipeline_stages as any)?.name || 'Novo',
           observacoes: leadData.notes || '',
           respostas: (leadData.form_submissions as any)?.[0]?.answers || {},
@@ -113,6 +115,18 @@ export default function LeadDetailsPage() {
     try {
       const supabase = createClient();
 
+      // Get authenticated user for actor_user_id
+      const { data: { user } } = await supabase.auth.getUser();
+
+      // We need the organization_id of the lead for the activity record
+      const { data: leadInfo } = await supabase
+        .from('leads')
+        .select('organization_id')
+        .eq('id', lead.id)
+        .single();
+
+      if (!leadInfo) throw new Error('Lead organization not found');
+
       // 1. Update lead stage
       const { error: updateError } = await supabase
         .from('leads')
@@ -125,7 +139,9 @@ export default function LeadDetailsPage() {
       const { error: actError } = await supabase
         .from('activities')
         .insert({
+          organization_id: leadInfo.organization_id,
           lead_id: lead.id,
+          actor_user_id: user?.id,
           type: 'status_changed',
           data: { from: lead.status, to: newStatusName },
         });
