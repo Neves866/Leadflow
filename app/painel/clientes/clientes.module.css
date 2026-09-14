@@ -88,3 +88,55 @@
   background: #fee2e2;
   color: #991b1b;
 }
+
+.filters {
+  margin-bottom: 20px;
+}
+
+.searchInput {
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 14px;
+  width: 100%;
+  max-width: 320px;
+}
+
+.searchInput:focus {
+  outline: none;
+  border-color: #6366f1;
+}
+
+.message {
+  padding: 48px 0;
+  text-align: center;
+  color: #6b7280;
+  font-size: 15px;
+}
+
+.emptyCell {
+  text-align: center;
+  color: #6b7280;
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.button:disabled:hover {
+  background: #6366f1;
+}
+
+@media (max-width: 800px) {
+  .container {
+    padding: 20px;
+  }
+
+  .header {
+    align-items: flex-start;
+    gap: 16px;
+    flex-direction: column;
+  }
+}

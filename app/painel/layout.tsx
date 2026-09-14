@@ -24,7 +24,7 @@ export default function PainelLayout({
     { label: "Visão geral", href: "/painel", icon: "📊" },
     { label: "Leads", href: "/painel/leads", icon: "👥" },
     { label: "Formulários", href: "/painel/formularios", icon: "📝" },
-    { label: "Clientes", href: "/painel/clientes", icon: "🏢" },
+    { label: "Contatos", href: "/painel/clientes", icon: "🏢" },
     { label: "Configurações", href: "/painel/configuracoes", icon: "⚙️" },
   ];
 
