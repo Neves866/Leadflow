@@ -97,7 +97,7 @@ export default function PainelPage() {
           <p className={styles.subtitle}>Acompanhe sua operação comercial e as oportunidades mais recentes.</p>
         </div>
 
-        <button className={styles.button} onClick={() => router.push('/formulario/demo')}>
+        <button className={styles.button} onClick={() => router.push('/painel/leads/novo')}>
           <span className={styles.buttonIcon}>+</span> Novo Lead
         </button>
       </header>
