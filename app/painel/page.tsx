@@ -1,45 +1,92 @@
 'use client';
 
 import styles from "./painel.module.css";
-import { MOCK_LEADS, LeadStatus } from "@/lib/mocks";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";  
+import { createClient } from "@/lib/supabase/client";
+
+interface DashboardLead {
+  id: string;
+  created_at: string;
+  source: string | null;
+  potential_value: number | null;
+  contacts: { name: string } | null;
+  services: { name: string } | null;
+  pipeline_stages: { name: string } | null;
+}
 
 export default function PainelPage() {
   const router = useRouter();
-  const [leads, setLeads] = useState<any[]>(MOCK_LEADS);
+  const [leads, setLeads] = useState<DashboardLead[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
-    const localLeads = JSON.parse(localStorage.getItem('leadflow_leads') || '[]');
-    const overrides = JSON.parse(localStorage.getItem('leadflow_status_overrides') || '{}');
+    async function fetchLeads() {
+      setLoading(true);
+      try {
+        const supabase = createClient();
 
-    const allLeads = [...localLeads, ...MOCK_LEADS].map(lead => ({
-      ...lead,
-      status: overrides[lead.id] || lead.status
-    }));
+        const { data, error: fetchError } = await supabase
+          .from('leads')
+          .select(`
+            id,
+            created_at,
+            source,
+            potential_value,
+            contacts ( name ),
+            services ( name ),
+            pipeline_stages ( name )
+          `)
+          .order('created_at', { ascending: false });
 
-    setLeads(allLeads);
-    setLoading(false);
+        if (fetchError) throw fetchError;
+
+        setLeads((data ?? []) as DashboardLead[]);
+      } catch (err) {
+        console.error('Error fetching leads:', err);
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchLeads();
   }, []);
 
   if (loading) {
     return <div className={styles.container}>Carregando...</div>;
   }
 
+  if (error) {
+    return (
+      <div className={styles.container}>
+        Falha ao carregar os dados do painel. Tente novamente mais tarde.
+      </div>
+    );
+  }
+
   const today = new Date().toISOString().split('T')[0];
 
-  const leadsHoje = leads.filter(l => l.data === today).length;
-  const novosLeads = leads.filter(l => l.status === 'Novo').length;
-  const emNegociacao = leads.filter(l => ['Orçamento', 'Negociação'].includes(l.status)).length;
-  const fechados = leads.filter(l => l.status === 'Fechado').length;
-  const valorPotencial = leads.reduce((acc, l) => acc + (l.valorPotencial || 0), 0);
+  const leadStage = (lead: DashboardLead) => lead.pipeline_stages?.name || '';
+  const leadsHoje = leads.filter(l => (l.created_at || '').startsWith(today)).length;
+  const novosLeads = leads.filter(l => leadStage(l) === 'Novo').length;
+  const emNegociacao = leads.filter(l => ['Orçamento', 'Negociação'].includes(leadStage(l))).length;
+  const fechados = leads.filter(l => leadStage(l) === 'Fechado').length;
+  const valorPotencial = leads.reduce((acc, l) => acc + (l.potential_value || 0), 0);
 
-  const pipelineStats = (status: LeadStatus) =>
-    leads.filter(l => l.status === status).length;
+  const pipelineStats = (stage: string) =>
+    leads.filter(l => leadStage(l) === stage).length;
 
-  const recentLeads = [...leads].sort((a, b) => b.data.localeCompare(a.data)).slice(0, 5);
+  const recentLeads = leads.slice(0, 5).map(lead => ({
+    id: lead.id,
+    nome: lead.contacts?.name || 'Sem nome',
+    servico: lead.services?.name || 'Sem serviço',
+    origem: lead.source || 'Não informada',
+    status: lead.pipeline_stages?.name || 'Novo',
+    valorPotencial: lead.potential_value || 0,
+  }));
 
   return (
     <main className={styles.container}>
