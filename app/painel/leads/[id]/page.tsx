@@ -1,36 +1,151 @@
 'use client';
 
 import styles from "./details.module.css";
-import { MOCK_LEADS, LeadStatus } from "@/lib/mocks";
 import { useRouter, useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+
+interface LeadData {
+  id: string;
+  nome: string;
+  telefone: string;
+  email: string;
+  servico: string;
+  origem: string;
+  urgencia: string;
+  data: string;
+  valorPotencial: number;
+  status: string;
+  observacoes: string;
+  respostas: any;
+  activities: any[];
+}
 
 export default function LeadDetailsPage() {
   const router = useRouter();
   const params = useParams();
   const id = params.id as string;
-  const [lead, setLead] = useState<any>(null);
+  const [lead, setLead] = useState<LeadData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [stages, setStages] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
-    if (!id) return;
-    const localLeads = JSON.parse(localStorage.getItem('leadflow_leads') || '[]');
-    const overrides = JSON.parse(localStorage.getItem('leadflow_status_overrides') || '{}');
-    const allLeads = [...localLeads, ...MOCK_LEADS];
-    const found = allLeads.find(l => l.id === id);
-    if (found) {
-      setLead({ ...found, status: overrides[id] || found.status });
+    async function fetchLeadDetails() {
+      if (!id) return;
+      setLoading(true);
+      try {
+        const supabase = createClient();
+
+        // 1. Fetch lead with relations
+        const { data: leadData, error: leadError } = await supabase
+          .from('leads')
+          .select(`
+            id,
+            created_at,
+            valor_potencial,
+            notes,
+            urgency,
+            source,
+            contacts ( name, phone, email ),
+            services ( label ),
+            pipeline_stages ( name ),
+            form_submissions ( answers )
+          `)
+          .eq('id', id)
+          .single();
+
+        if (leadError || !leadData) throw leadError || new Error('Lead not found');
+
+        // 2. Fetch stages for the pipeline
+        const { data: stagesData, error: stagesError } = await supabase
+          .from('pipeline_stages')
+          .select('id, name')
+          .eq('pipeline_id', leadData.pipeline_id);
+
+        if (stagesError) throw stagesError;
+
+        setStages(stagesData);
+
+        // Map to UI format
+        setLead({
+          id: leadData.id,
+          nome: (leadData.contacts as any)?.name || 'Sem nome',
+          telefone: (leadData.contacts as any)?.phone || '',
+          email: (leadData.contacts as any)?.email || '',
+          servico: (leadData.services as any)?.label || 'Sem serviço',
+          origem: leadData.source || 'Não informada',
+          urgencia: leadData.urgency || 'Média',
+          data: new Date(leadData.created_at).toLocaleDateString('pt-BR'),
+          valorPotencial: leadData.valor_potencial || 0,
+          status: (leadData.pipeline_stages as any)?.name || 'Novo',
+          observacoes: leadData.notes || '',
+          respostas: (leadData.form_submissions as any)?.[0]?.answers || {},
+          activities: [], // Will fetch in next step or separate call
+        });
+
+        // 3. Fetch activities
+        const { data: activitiesData, error: actError } = await supabase
+          .from('activities')
+          .select('*')
+          .eq('lead_id', id)
+          .order('created_at', { ascending: false });
+
+        if (!actError && activitiesData) {
+          setLead(prev => prev ? { ...prev, activities: activitiesData } : null);
+        }
+
+      } catch (err) {
+        console.error('Error fetching lead details:', err);
+      } finally {
+        setLoading(false);
+      }
     }
+
+    fetchLeadDetails();
   }, [id]);
 
-  const handleStatusChange = (newStatus: string) => {
+  const handleStatusChange = async (newStatusName: string) => {
     if (!lead) return;
 
-    const overrides = JSON.parse(localStorage.getItem('leadflow_status_overrides') || '{}');
-    overrides[lead.id] = newStatus;
-    localStorage.setItem('leadflow_status_overrides', JSON.stringify(overrides));
+    const stage = stages.find(s => s.name === newStatusName);
+    if (!stage) return;
 
-    setLead({ ...lead, status: newStatus });
+    try {
+      const supabase = createClient();
+
+      // 1. Update lead stage
+      const { error: updateError } = await supabase
+        .from('leads')
+        .update({ stage_id: stage.id })
+        .eq('id', lead.id);
+
+      if (updateError) throw updateError;
+
+      // 2. Create activity
+      const { error: actError } = await supabase
+        .from('activities')
+        .insert({
+          lead_id: lead.id,
+          type: 'status_changed',
+          data: { from: lead.status, to: newStatusName },
+        });
+
+      if (actError) throw actError;
+
+      setLead({ ...lead, status: newStatusName });
+    } catch (err) {
+      console.error('Error updating status:', err);
+      alert('Erro ao atualizar status.');
+    }
   };
+
+  if (loading) {
+    return (
+      <div className={styles.container}>
+        <p>Carregando detalhes do lead...</p>
+      </div>
+    );
+  }
 
   if (!lead) {
     return (
@@ -66,11 +181,9 @@ export default function LeadDetailsPage() {
             value={lead.status}
             onChange={(e) => handleStatusChange(e.target.value)}
           >
-            <option value="Novo">Novo</option>
-            <option value="Qualificado">Qualificado</option>
-            <option value="Orçamento">Orçamento</option>
-            <option value="Negociação">Negociação</option>
-            <option value="Fechado">Fechado</option>
+            {stages.map(s => (
+              <option key={s.id} value={s.name}>{s.name}</option>
+            ))}
           </select>
         </div>
       </header>
@@ -131,64 +244,17 @@ export default function LeadDetailsPage() {
       <section className={`${styles.card} ${styles.fullWidth}`}>
         <h2 className={styles.cardTitle}>Respostas do Formulário</h2>
         <div className={styles.responses}>
-          {lead.respostas ? (
+          {lead.respostas && Object.entries(lead.respostas).length > 0 ? (
             <>
-              <div className={styles.responseItem}>
-                <p className={styles.label}>Categoria</p>
-                <p className={styles.value}>{lead.respostas.categoria}</p>
-              </div>
-              {lead.respostas.tipoServico && (
-                <div className={styles.responseItem}>
-                  <p className={styles.label}>Tipo de Serviço</p>
-                  <p className={styles.value}>{lead.respostas.tipoServico}</p>
+              {Object.entries(lead.respostas).map(([key, value]: [string, any]) => (
+                <div key={key} className={styles.responseItem}>
+                  <p className={styles.label}>{key.replace(/([A-Z])/g, ' $1').trim()}</p>
+                  <p className={styles.value}>{String(value)}</p>
                 </div>
-              )}
-              {lead.respostas.btus && (
-                <div className={styles.responseItem}>
-                  <p className={styles.label}>Capacidade (BTUs)</p>
-                  <p className={styles.value}>{lead.respostas.btus}</p>
-                </div>
-              )}
-              {lead.respostas.possuiEquipamento && (
-                <div className={styles.responseItem}>
-                  <p className={styles.label}>Já possui equipamento?</p>
-                  <p className={styles.value}>{lead.respostas.possuiEquipamento}</p>
-                </div>
-              )}
-              {lead.respostas.costasACostas && (
-                <div className={styles.responseItem}>
-                  <p className={styles.label}>Instalação costas a costas?</p>
-                  <p className={styles.value}>{lead.respostas.costasACostas}</p>
-                </div>
-              )}
-              <div className={styles.responseItem}>
-                <p className={styles.label}>Cidade</p>
-                <p className={styles.value}>{lead.respostas.cidade || 'Não informado'}</p>
-              </div>
-              <div className={styles.responseItem}>
-                <p className={styles.label}>Bairro</p>
-                <p className={styles.value}>{lead.respostas.bairro || 'Não informado'}</p>
-              </div>
-              <div className={styles.responseItem}>
-                <p className={styles.label}>Urgência</p>
-                <p className={styles.value}>{lead.respostas.urgencia}</p>
-              </div>
-              <div className={styles.responseItem}>
-                <p className={styles.label}>Observações</p>
-                <p className={styles.value}>{lead.respostas.observacoes || 'Nenhuma'}</p>
-              </div>
+              ))}
             </>
           ) : (
-            <>
-              <div className={styles.responseItem}>
-                <p className={styles.label}>Necessidade Principal</p>
-                <p className={styles.value}>{lead.servico}</p>
-              </div>
-              <div className={styles.responseItem}>
-                <p className={styles.label}>Observações</p>
-                <p className={styles.value}>{lead.observacoes}</p>
-              </div>
-            </>
+            <p>Nenhuma resposta registrada.</p>
           )}
         </div>
       </section>
@@ -205,20 +271,21 @@ export default function LeadDetailsPage() {
       <section className={`${styles.card} ${styles.fullWidth}`}>
         <h2 className={styles.cardTitle}>Histórico de Atividades</h2>
         <div className={styles.timeline}>
-          <div className={styles.timelineItem}>
-            <div className={styles.dot} />
-            <div className={styles.timelineContent}>
-              <p className={styles.time}>{lead.data} - 14:20</p>
-              <p>Lead criado via formulário público.</p>
-            </div>
-          </div>
-          <div className={styles.timelineItem}>
-            <div className={styles.dot} />
-            <div className={styles.timelineContent}>
-              <p className={styles.time}>31 Ago, 2026 - 09:00</p>
-              <p>Status alterado para {lead.status}.</p>
-            </div>
-          </div>
+          {lead.activities && lead.activities.length > 0 ? (
+            lead.activities.map((act: any, idx: number) => (
+              <div key={idx} className={styles.timelineItem}>
+                <div className={styles.dot} />
+                <div className={styles.timelineContent}>
+                  <p className={styles.time}>
+                    {new Date(act.created_at).toLocaleString('pt-BR')}
+                  </p>
+                  <p>{act.type === 'lead_created' ? 'Lead criado via formulário público.' : `Status alterado para ${act.data?.to || 'outro status'}.`}</p>
+                </div>
+              </div>
+            ))
+          ) : (
+            <p>Nenhuma atividade registrada.</p>
+          )}
         </div>
       </section>
     </main>

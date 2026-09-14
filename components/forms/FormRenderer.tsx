@@ -28,52 +28,40 @@ export default function FormRenderer({ orgConfig, formConfig }: FormRendererProp
     else if (step === 'details') setStep('category');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
+    setError(null);
 
-    const protocol = `LF-${Math.floor(100000 + Math.random() * 900000)}`;
-    const existingLeads = JSON.parse(localStorage.getItem('leadflow_leads') || '[]');
-    const leadId = Date.now().toString();
+    try {
+      const response = await fetch(`/api/forms/${formConfig.slug}/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          serviceId: formData.serviceId,
+          answers: formData,
+        }),
+      });
 
-    // Determine the visual service name for dashboard compatibility
-    const selectedService = orgConfig.services.find(s => s.id === formData.serviceId);
-    const serviceLabel = selectedService?.label || formData.category || 'Não informado';
+      const result = (await response.json()) as { success?: boolean; protocol?: string; leadId?: string; error?: string };
 
-    // Generic composition: the org config may define a template with
-    // {fieldId} placeholders resolved from the form answers.
-    const resolveServicoTemplate = (template: string): string =>
-      template.replace(/\{(\w+)\}/g, (_match, fieldId: string) => formData[fieldId] || '');
-
-    const servicoDesc = selectedService?.servicoTemplate
-      ? resolveServicoTemplate(selectedService.servicoTemplate)
-      : serviceLabel;
-
-    const newLead = {
-      id: leadId,
-      nome: formData.name,
-      telefone: formData.whatsapp,
-      email: '',
-      servico: servicoDesc,
-      origem: `Formulário ${formConfig.slug}`,
-      status: 'Novo',
-      urgencia: formData.urgency || 'Média',
-      valorPotencial: 0,
-      data: new Date().toISOString().split('T')[0],
-      observacoes: formData.notes,
-      protocol: protocol,
-      organizationId: orgConfig.id,
-      formId: formConfig.id,
-      formSlug: formConfig.slug,
-      respostas: {
-        ...formData,
-        categoria: serviceLabel,
+      if (!response.ok) {
+        throw new Error(result.error || 'Erro ao enviar formulário');
       }
-    };
 
-    localStorage.setItem('leadflow_leads', JSON.stringify([...existingLeads, newLead]));
-    localStorage.setItem('leadflow_last_protocol', protocol);
-    localStorage.setItem('leadflow_last_lead_id', leadId);
-    router.push('/sucesso');
+      // Persist only minimal info for the /sucesso page to maintain current behavior
+      localStorage.setItem('leadflow_last_protocol', result.protocol || '');
+      localStorage.setItem('leadflow_last_lead_id', result.leadId || '');
+
+      router.push('/sucesso');
+    } catch (err: any) {
+      setError(err.message || 'Ocorreu um erro inesperado.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -187,9 +175,13 @@ export default function FormRenderer({ orgConfig, formConfig }: FormRendererProp
                 </div>
               ))}
 
+              {error && <div className={styles.errorMessage} style={{ color: 'red', fontSize: '0.8rem', textAlign: 'center', marginBottom: '1rem' }}>{error}</div>}
+
               <div className={styles.navButtons}>
                 <button type="button" className={styles.btnSecondary} onClick={prevStep}>Voltar</button>
-                <button type="submit" className={styles.btnPrimary}>Enviar Solicitação</button>
+                <button type="submit" disabled={loading} className={styles.btnPrimary}>
+                  {loading ? 'Enviando...' : 'Enviar Solicitação'}
+                </button>
               </div>
             </form>
           </div>
