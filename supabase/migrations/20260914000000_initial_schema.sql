@@ -1,5 +1,5 @@
 -- LeadFlow Foundation Schema
--- FASE D1: FUNDAÇÃO DO BANCO DE DADOS (Hardened Version)
+-- FASE D1: FUNDAÇÃO DO BANCO DE DADOS (Hardened & Patched Version)
 
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
@@ -29,7 +29,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
 
--- Helper to check admin role
+-- Helper to check admin role (Admin or Owner)
 CREATE OR REPLACE FUNCTION private.is_org_admin(org_id uuid)
 RETURNS boolean AS $$
 BEGIN
@@ -42,11 +42,26 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
 
+-- Helper to check owner role
+CREATE OR REPLACE FUNCTION private.is_org_owner(org_id uuid)
+RETURNS boolean AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.organization_members
+    WHERE organization_id = org_id
+      AND user_id = auth.uid()
+      AND role = 'owner'
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
+
 -- Revoke execute from public for safety, grant to authenticated
 REVOKE EXECUTE ON FUNCTION private.is_member_of(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION private.is_member_of(uuid) TO authenticated;
 REVOKE EXECUTE ON FUNCTION private.is_org_admin(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION private.is_org_admin(uuid) TO authenticated;
+REVOKE EXECUTE ON FUNCTION private.is_org_owner(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION private.is_org_owner(uuid) TO authenticated;
 
 -- -----------------------------------------------------------------------------
 -- 1. ORGANIZATIONS
@@ -77,7 +92,8 @@ CREATE TABLE organization_members (
     user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     role text NOT NULL CHECK (role IN ('owner', 'admin', 'member')),
     created_at timestamptz DEFAULT now(),
-    UNIQUE(organization_id, user_id)
+    UNIQUE(organization_id, user_id),
+    UNIQUE(user_id, organization_id) -- Required for Composite FKs in Leads
 );
 
 -- -----------------------------------------------------------------------------
@@ -169,7 +185,7 @@ CREATE TABLE pipeline_stages (
     is_closed boolean DEFAULT false,
     FOREIGN KEY (pipeline_id, organization_id) REFERENCES pipelines(id, organization_id) ON DELETE CASCADE,
     UNIQUE(pipeline_id, key),
-    UNIQUE(id, organization_id) -- Required for composite FKs
+    UNIQUE(id, pipeline_id, organization_id) -- Required for Stage-Pipeline link in Leads
 );
 
 -- -----------------------------------------------------------------------------
@@ -201,7 +217,7 @@ CREATE TABLE leads (
     form_id uuid,
     pipeline_id uuid NOT NULL,
     stage_id uuid NOT NULL,
-    assigned_user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+    assigned_user_id uuid,
     title text,
     source text,
     urgency text,
@@ -213,10 +229,13 @@ CREATE TABLE leads (
 
     -- Composite Foreign Keys ensuring multi-tenant integrity
     FOREIGN KEY (contact_id, organization_id) REFERENCES contacts(id, organization_id) ON DELETE CASCADE,
-    FOREIGN KEY (service_id, organization_id) REFERENCES services(id, organization_id) ON DELETE SET NULL,
-    FOREIGN KEY (form_id, organization_id) REFERENCES forms(id, organization_id) ON DELETE SET NULL,
+    FOREIGN KEY (service_id, organization_id) REFERENCES services(id, organization_id) ON DELETE RESTRICT,
+    FOREIGN KEY (form_id, organization_id) REFERENCES forms(id, organization_id) ON DELETE RESTRICT,
     FOREIGN KEY (pipeline_id, organization_id) REFERENCES pipelines(id, organization_id) ON DELETE RESTRICT,
-    FOREIGN KEY (stage_id, organization_id) REFERENCES pipeline_stages(id, organization_id) ON DELETE RESTRICT,
+    -- Stage must belong to the specific Pipeline and Organization of the lead
+    FOREIGN KEY (stage_id, pipeline_id, organization_id) REFERENCES pipeline_stages(id, pipeline_id, organization_id) ON DELETE RESTRICT,
+    -- Assigned User must belong to the organization
+    FOREIGN KEY (assigned_user_id, organization_id) REFERENCES organization_members(user_id, organization_id) ON DELETE RESTRICT,
 
     UNIQUE(organization_id, protocol),
     UNIQUE(id, organization_id) -- Required for composite FKs
@@ -240,7 +259,7 @@ CREATE TABLE form_submissions (
     created_at timestamptz DEFAULT now(),
 
     FOREIGN KEY (form_id, organization_id) REFERENCES forms(id, organization_id) ON DELETE CASCADE,
-    FOREIGN KEY (lead_id, organization_id) REFERENCES leads(id, organization_id) ON DELETE SET NULL
+    FOREIGN KEY (lead_id, organization_id) REFERENCES leads(id, organization_id) ON DELETE RESTRICT
 );
 
 -- -----------------------------------------------------------------------------
@@ -250,7 +269,7 @@ CREATE TABLE activities (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     lead_id uuid NOT NULL,
-    actor_user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+    actor_user_id uuid,
     type text NOT NULL,
     data jsonb,
     created_at timestamptz DEFAULT now(),
@@ -259,10 +278,55 @@ CREATE TABLE activities (
 );
 
 -- -----------------------------------------------------------------------------
--- AUTOMATION: updated_at
+-- AUTOMATION & CLEANUP TRIGGERS
 -- -----------------------------------------------------------------------------
 
--- Apply updated_at trigger to relevant tables
+-- 1. updated_at Trigger
+CREATE OR REPLACE FUNCTION private.set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
+
+-- 2. Partial SET NULL Trigger for Optional Relations
+-- Since Composite FKs with ON DELETE SET NULL null all columns,
+-- we use a trigger to null only the reference ID.
+CREATE OR REPLACE FUNCTION private.handle_optional_references()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- This is a generic cleanup function. We apply specific ones below.
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
+
+-- Specific Cleanup Triggers
+CREATE OR REPLACE FUNCTION private.cleanup_service_deletion()
+RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE public.leads SET service_id = NULL WHERE service_id = OLD.id;
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
+
+CREATE OR REPLACE FUNCTION private.cleanup_form_deletion()
+RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE public.leads SET form_id = NULL WHERE form_id = OLD.id;
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
+
+CREATE OR REPLACE FUNCTION private.cleanup_member_deletion()
+RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE public.leads SET assigned_user_id = NULL WHERE assigned_user_id = OLD.user_id;
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
+
+-- Apply updated_at trigger
 DO $$
 DECLARE
     t text;
@@ -275,6 +339,11 @@ BEGIN
     END LOOP;
 END;
 $$ LANGUAGE plpgsql;
+
+-- Attach cleanup triggers
+CREATE TRIGGER tr_cleanup_services BEFORE DELETE ON services FOR EACH ROW EXECUTE FUNCTION private.cleanup_service_deletion();
+CREATE TRIGGER tr_cleanup_forms BEFORE DELETE ON forms FOR EACH ROW EXECUTE FUNCTION private.cleanup_form_deletion();
+CREATE TRIGGER tr_cleanup_members BEFORE DELETE ON organization_members FOR EACH ROW EXECUTE FUNCTION private.cleanup_member_deletion();
 
 -- -----------------------------------------------------------------------------
 -- MULTI-TENANCY & RLS
@@ -303,17 +372,24 @@ CREATE POLICY "Admins can update their organizations" ON organizations
     FOR UPDATE USING (private.is_org_admin(id));
 
 -- Organization Members Policies
-CREATE POLICY "Members can view their organization memberships" ON organization_members
-    FOR SELECT USING (
-        EXISTS (
-            SELECT 1 FROM organization_members om
-            WHERE om.organization_id = organization_members.organization_id
-              AND om.user_id = auth.uid()
-        )
-    );
+-- Fix: Avoid recursion by using helper. Members view memberships of orgs they belong to.
+CREATE POLICY "Members can view their org memberships" ON organization_members
+    FOR SELECT USING (private.is_member_of(organization_id));
 
-CREATE POLICY "Admins can manage memberships" ON organization_members
-    FOR ALL USING (private.is_org_admin(organization_id));
+-- Privilege Escalation Protection:
+-- Owners can manage anyone. Admins can only manage 'member' role.
+CREATE POLICY "Owners can manage all memberships" ON organization_members
+    FOR ALL USING (private.is_org_owner(organization_id));
+
+CREATE POLICY "Admins can manage members" ON organization_members
+    FOR ALL USING (
+        private.is_org_admin(organization_id) AND
+        (role = 'member') -- Only allow managing 'member' role
+    )
+    WITH CHECK (
+        private.is_org_admin(organization_id) AND
+        (role = 'member') -- Prevent promoting to admin/owner
+    );
 
 -- Profiles Policies
 CREATE POLICY "Users can view their own profile" ON profiles

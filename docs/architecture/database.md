@@ -38,10 +38,10 @@ Instead of referencing only a Primary Key (e.g., `service_id`), child tables ref
 
 This ensures that a lead cannot be linked to a service that belongs to a different organization, as the `organization_id` must match across both tables.
 
-### Tenant Identification
-A record's tenant is identified:
-1. Directly via its own `organization_id` column.
-2. Inherited via a composite foreign key from a parent record.
+### Advanced Integrity Constraints
+- **Pipeline-Stage Binding**: To prevent assigning a lead to a stage that doesn't belong to its pipeline, the system uses a composite FK: `(stage_id, pipeline_id, organization_id)`.
+- **Lead Ownership**: The `assigned_user_id` is validated via a composite FK against `organization_members`, ensuring the assigned user actually belongs to the lead's organization.
+- **Tenant Identification**: A record's tenant is identified either directly via its `organization_id` or inherited via a composite FK from its parent.
 
 ## Security & Isolation (RLS)
 
@@ -52,18 +52,19 @@ All security checks are performed by functions in a **private schema**, configur
 
 - **`private.is_member_of(org_id)`**: Checks if the authenticated user is a member of the organization.
 - **`private.is_org_admin(org_id)`**: Checks if the authenticated user is an `owner` or `admin`.
+- **`private.is_org_owner(org_id)`**: Checks if the authenticated user is an `owner`.
 
 ### Permissions Matrix
 
-| Entity | Member (SELECT) | Member (Write) | Admin (Write) | Notes |
-| :--- | :---: | :---: | :---: | :--- |
-| **Organizations** | ✅ | ❌ | ✅ | Update only |
-| **Memberships** | ✅ | ❌ | ✅ | Full management |
-| **Profiles** | ✅ | ❌ | ❌ | Update own only |
-| **Config** (Services, Forms, etc) | ✅ | ❌ | ✅ | Configuration locked to admins |
-| **CRM** (Contacts, Leads) | ✅ | ✅ | ✅ | Open to all members |
-| **Submissions** | ✅ | ❌ | ❌ | **Immutable** |
-| **Activities** | ✅ | ✅ | ✅ | **Append-only** (No Update/Delete) |
+| Entity | Member (SELECT) | Member (Write) | Admin (Write) | Owner (Write) | Notes |
+| :--- | :---: | :---: | :---: | :---: | :--- |
+| **Organizations** | ✅ | ❌ | ✅ | ✅ | Update only |
+| **Memberships** | ✅ | ❌ | ✅ (Member only) | ✅ | Admins cannot promote to Admin/Owner |
+| **Profiles** | ✅ | ❌ | ❌ | ❌ | Update own only |
+| **Config** (Services, Forms, etc) | ✅ | ❌ | ✅ | ✅ | Configuration locked to admins |
+| **CRM** (Contacts, Leads) | ✅ | ✅ | ✅ | ✅ | Open to all members |
+| **Submissions** | ✅ | ❌ | ❌ | ❌ | **Immutable** |
+| **Activities** | ✅ | ✅ | ✅ | ✅ | **Append-only** (No Update/Delete) |
 
 ### Public Forms
 The public browser **cannot** insert directly into the database.
