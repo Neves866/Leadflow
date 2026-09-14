@@ -1,53 +1,74 @@
 # Database Architecture - LeadFlow
 
-This document describes the initial database schema for LeadFlow, designed for multi-tenancy from the ground up.
+This document describes the initial database schema for LeadFlow, designed for high-integrity multi-tenancy.
 
 ## Core Concepts
 
-The system follows a **shared database, shared schema** multi-tenancy model. Every tenant-specific table contains an `organization_id` to ensure strict data isolation.
+The system follows a **shared database, shared schema** multi-tenancy model. Every tenant-specific record is isolated by an `organization_id`.
 
 ## Schema Overview
 
 ### 1. Multi-Tenancy Foundation
-- **`organizations`**: The root of the multi-tenancy. Each client is an organization.
+- **`organizations`**: The root of the multi-tenancy.
 - **`profiles`**: Extends `auth.users` with application-specific details.
-- **`organization_members`**: Maps users to organizations with specific roles (`owner`, `admin`, `member`). This table is the source of truth for RLS policies.
+- **`organization_members`**: Maps users to organizations with roles (`owner`, `admin`, `member`). This is the source of truth for access control.
 
 ### 2. Configuration
-- **`services`**: Replaces the static TypeScript `ServiceConfig`. Defines the services offered by an organization (e.g., "Air Conditioning", "Electrical").
-- **`forms`**: Defines the public forms available for lead capture.
-- **`form_steps` & `form_fields`**: Defines the structure, sequence, and validation of the forms.
+- **`services`**: Defines services offered by an organization.
+- **`forms`**: Defines public forms for lead capture.
+- **`form_steps` & `form_fields`**: Defines the structure, sequence, and conditional logic of forms.
 
 ### 3. Sales Pipeline
-- **`pipelines`**: Organizations can have multiple pipelines, one of which is marked as default.
-- **`pipeline_stages`**: The individual steps within a pipeline (e.g., "New" $\rightarrow$ "Qualified" $\rightarrow$ "Closed").
+- **`pipelines`**: Defined per organization. Only one pipeline can be marked as `is_default` per organization.
+- **`pipeline_stages`**: Individual steps within a pipeline.
 
 ### 4. Lead Management
-- **`contacts`**: Unique identity for a person across different leads within the same organization.
-- **`leads`**: The central entity representing a sales opportunity. Linked to a contact, service, form, and a specific stage in a pipeline.
-- **`form_submissions`**: An immutable record of what was submitted via a public form. This ensures that even if a lead is updated, the original submission data is preserved.
-- **`activities`**: A chronological log of events (timeline) associated with a lead.
+- **`contacts`**: Identity of a person within an organization.
+- **`leads`**: A sales opportunity linked to a contact, service, form, and pipeline stage.
+- **`form_submissions`**: An **immutable** record of what was submitted via a public form.
+- **`activities`**: An **append-only** chronological log of events associated with a lead.
 
-## Entity Relationship Diagram (Conceptual)
+## Multi-Tenant Integrity
 
-`organizations` $\rightarrow$ `organization_members` $\rightarrow$ `profiles`
-`organizations` $\rightarrow$ `services`
-`organizations` $\rightarrow$ `forms` $\rightarrow$ `form_steps` $\rightarrow$ `form_fields`
-`organizations` $\rightarrow$ `pipelines` $\rightarrow$ `pipeline_stages`
-`organizations` $\rightarrow$ `contacts` $\rightarrow$ `leads` $\leftarrow$ `pipeline_stages`
-`leads` $\rightarrow$ `form_submissions`
-`leads` $\rightarrow$ `activities`
+To prevent "cross-tenant leakage" at the database level (even if RLS is bypassed), the system uses **Composite Foreign Keys**.
+
+### Integrity Rule
+Instead of referencing only a Primary Key (e.g., `service_id`), child tables reference both the ID and the `organization_id`:
+`FOREIGN KEY (service_id, organization_id) REFERENCES services(id, organization_id)`
+
+This ensures that a lead cannot be linked to a service that belongs to a different organization, as the `organization_id` must match across both tables.
+
+### Tenant Identification
+A record's tenant is identified:
+1. Directly via its own `organization_id` column.
+2. Inherited via a composite foreign key from a parent record.
 
 ## Security & Isolation (RLS)
 
-Data isolation is enforced via **Row Level Security (RLS)**.
+Data isolation is enforced via **Row Level Security (RLS)** and hardened helper functions.
 
-1. **Membership Check**: A helper function `is_member_of(org_id)` checks if the current `auth.uid()` exists in `organization_members` for the given `org_id`.
-2. **Strict Access**: All tenant-specific tables have policies that prevent access unless `is_member_of(organization_id)` returns true.
-3. **Public Forms**: Public users cannot perform direct inserts into the database. The intended flow is:
-   `Public Form` $\rightarrow$ `LeadFlow API` $\rightarrow$ `Backend Validation` $\rightarrow$ `Database Insert`.
-   The `organization_id` is determined on the server based on the form slug, never trusted from the client.
+### Hardened Access Control
+All security checks are performed by functions in a **private schema**, configured with `SECURITY DEFINER` and `SET search_path = ''` to prevent search-path hijacking.
+
+- **`private.is_member_of(org_id)`**: Checks if the authenticated user is a member of the organization.
+- **`private.is_org_admin(org_id)`**: Checks if the authenticated user is an `owner` or `admin`.
+
+### Permissions Matrix
+
+| Entity | Member (SELECT) | Member (Write) | Admin (Write) | Notes |
+| :--- | :---: | :---: | :---: | :--- |
+| **Organizations** | ✅ | ❌ | ✅ | Update only |
+| **Memberships** | ✅ | ❌ | ✅ | Full management |
+| **Profiles** | ✅ | ❌ | ❌ | Update own only |
+| **Config** (Services, Forms, etc) | ✅ | ❌ | ✅ | Configuration locked to admins |
+| **CRM** (Contacts, Leads) | ✅ | ✅ | ✅ | Open to all members |
+| **Submissions** | ✅ | ❌ | ❌ | **Immutable** |
+| **Activities** | ✅ | ✅ | ✅ | **Append-only** (No Update/Delete) |
+
+### Public Forms
+The public browser **cannot** insert directly into the database.
+`Public Form` $\rightarrow$ `LeadFlow API` $\rightarrow$ `Backend Validation` $\rightarrow$ `Database Insert`.
+The `organization_id` is resolved on the server via the form slug.
 
 ## Initial Tenant: Iluminar
-
-Iluminar is the first production tenant. While the schema is generic, the seed data establishes Iluminar's specific services and pipeline to accelerate MVP development.
+Iluminar is the first production tenant. The seed data provides the specific services and pipeline used in the MVP.

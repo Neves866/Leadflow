@@ -1,8 +1,52 @@
 -- LeadFlow Foundation Schema
--- FASE D1: FUNDAÇÃO DO BANCO DE DADOS
+-- FASE D1: FUNDAÇÃO DO BANCO DE DADOS (Hardened Version)
 
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- -----------------------------------------------------------------------------
+-- 0. PRIVATE SCHEMA & SECURITY HELPERS
+-- -----------------------------------------------------------------------------
+CREATE SCHEMA private;
+
+-- Helper to update updated_at timestamp
+CREATE OR REPLACE FUNCTION private.set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
+
+-- Helper to check membership
+CREATE OR REPLACE FUNCTION private.is_member_of(org_id uuid)
+RETURNS boolean AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.organization_members
+    WHERE organization_id = org_id AND user_id = auth.uid()
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
+
+-- Helper to check admin role
+CREATE OR REPLACE FUNCTION private.is_org_admin(org_id uuid)
+RETURNS boolean AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.organization_members
+    WHERE organization_id = org_id
+      AND user_id = auth.uid()
+      AND role IN ('owner', 'admin')
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
+
+-- Revoke execute from public for safety, grant to authenticated
+REVOKE EXECUTE ON FUNCTION private.is_member_of(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION private.is_member_of(uuid) TO authenticated;
+REVOKE EXECUTE ON FUNCTION private.is_org_admin(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION private.is_org_admin(uuid) TO authenticated;
 
 -- -----------------------------------------------------------------------------
 -- 1. ORGANIZATIONS
@@ -50,7 +94,8 @@ CREATE TABLE services (
     sort_order integer DEFAULT 0,
     created_at timestamptz DEFAULT now(),
     updated_at timestamptz DEFAULT now(),
-    UNIQUE(organization_id, key)
+    UNIQUE(organization_id, key),
+    UNIQUE(id, organization_id) -- Required for composite FKs
 );
 
 -- -----------------------------------------------------------------------------
@@ -63,22 +108,27 @@ CREATE TABLE forms (
     name text NOT NULL,
     active boolean DEFAULT true,
     created_at timestamptz DEFAULT now(),
-    updated_at timestamptz DEFAULT now()
+    updated_at timestamptz DEFAULT now(),
+    UNIQUE(id, organization_id) -- Required for composite FKs
 );
 
 CREATE TABLE form_steps (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    form_id uuid NOT NULL REFERENCES forms(id) ON DELETE CASCADE,
+    form_id uuid NOT NULL,
+    organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     key text NOT NULL,
     title text,
     subtitle text,
     sort_order integer DEFAULT 0,
-    UNIQUE(form_id, key)
+    FOREIGN KEY (form_id, organization_id) REFERENCES forms(id, organization_id) ON DELETE CASCADE,
+    UNIQUE(form_id, key),
+    UNIQUE(id, organization_id) -- Required for composite FKs
 );
 
 CREATE TABLE form_fields (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    step_id uuid NOT NULL REFERENCES form_steps(id) ON DELETE CASCADE,
+    step_id uuid NOT NULL,
+    organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     key text NOT NULL,
     type text NOT NULL,
     label text NOT NULL,
@@ -87,6 +137,7 @@ CREATE TABLE form_fields (
     options jsonb,
     show_when jsonb,
     sort_order integer DEFAULT 0,
+    FOREIGN KEY (step_id, organization_id) REFERENCES form_steps(id, organization_id) ON DELETE CASCADE,
     UNIQUE(step_id, key)
 );
 
@@ -99,17 +150,26 @@ CREATE TABLE pipelines (
     name text NOT NULL,
     is_default boolean DEFAULT false,
     created_at timestamptz DEFAULT now(),
-    updated_at timestamptz DEFAULT now()
+    updated_at timestamptz DEFAULT now(),
+    UNIQUE(id, organization_id) -- Required for composite FKs
 );
+
+-- Prevent multiple default pipelines per organization
+CREATE UNIQUE INDEX idx_one_default_pipeline_per_org
+ON pipelines (organization_id)
+WHERE (is_default = true);
 
 CREATE TABLE pipeline_stages (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    pipeline_id uuid NOT NULL REFERENCES pipelines(id) ON DELETE CASCADE,
+    pipeline_id uuid NOT NULL,
+    organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     key text NOT NULL,
     name text NOT NULL,
     sort_order integer DEFAULT 0,
     is_closed boolean DEFAULT false,
-    UNIQUE(pipeline_id, key)
+    FOREIGN KEY (pipeline_id, organization_id) REFERENCES pipelines(id, organization_id) ON DELETE CASCADE,
+    UNIQUE(pipeline_id, key),
+    UNIQUE(id, organization_id) -- Required for composite FKs
 );
 
 -- -----------------------------------------------------------------------------
@@ -122,7 +182,8 @@ CREATE TABLE contacts (
     phone text,
     email text,
     created_at timestamptz DEFAULT now(),
-    updated_at timestamptz DEFAULT now()
+    updated_at timestamptz DEFAULT now(),
+    UNIQUE(id, organization_id) -- Required for composite FKs
 );
 
 CREATE INDEX idx_contacts_organization_id ON contacts(organization_id);
@@ -135,11 +196,11 @@ CREATE INDEX idx_contacts_email ON contacts(email);
 CREATE TABLE leads (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-    contact_id uuid NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
-    service_id uuid REFERENCES services(id) ON DELETE SET NULL,
-    form_id uuid REFERENCES forms(id) ON DELETE SET NULL,
-    pipeline_id uuid NOT NULL REFERENCES pipelines(id) ON DELETE RESTRICT,
-    stage_id uuid NOT NULL REFERENCES pipeline_stages(id) ON DELETE RESTRICT,
+    contact_id uuid NOT NULL,
+    service_id uuid,
+    form_id uuid,
+    pipeline_id uuid NOT NULL,
+    stage_id uuid NOT NULL,
     assigned_user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
     title text,
     source text,
@@ -149,7 +210,16 @@ CREATE TABLE leads (
     protocol text,
     created_at timestamptz DEFAULT now(),
     updated_at timestamptz DEFAULT now(),
-    UNIQUE(organization_id, protocol)
+
+    -- Composite Foreign Keys ensuring multi-tenant integrity
+    FOREIGN KEY (contact_id, organization_id) REFERENCES contacts(id, organization_id) ON DELETE CASCADE,
+    FOREIGN KEY (service_id, organization_id) REFERENCES services(id, organization_id) ON DELETE SET NULL,
+    FOREIGN KEY (form_id, organization_id) REFERENCES forms(id, organization_id) ON DELETE SET NULL,
+    FOREIGN KEY (pipeline_id, organization_id) REFERENCES pipelines(id, organization_id) ON DELETE RESTRICT,
+    FOREIGN KEY (stage_id, organization_id) REFERENCES pipeline_stages(id, organization_id) ON DELETE RESTRICT,
+
+    UNIQUE(organization_id, protocol),
+    UNIQUE(id, organization_id) -- Required for composite FKs
 );
 
 CREATE INDEX idx_leads_organization_id ON leads(organization_id);
@@ -163,11 +233,14 @@ CREATE INDEX idx_leads_contact_id ON leads(contact_id);
 CREATE TABLE form_submissions (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-    form_id uuid NOT NULL REFERENCES forms(id) ON DELETE CASCADE,
-    lead_id uuid REFERENCES leads(id) ON DELETE SET NULL,
+    form_id uuid NOT NULL,
+    lead_id uuid,
     answers jsonb NOT NULL,
     metadata jsonb,
-    created_at timestamptz DEFAULT now()
+    created_at timestamptz DEFAULT now(),
+
+    FOREIGN KEY (form_id, organization_id) REFERENCES forms(id, organization_id) ON DELETE CASCADE,
+    FOREIGN KEY (lead_id, organization_id) REFERENCES leads(id, organization_id) ON DELETE SET NULL
 );
 
 -- -----------------------------------------------------------------------------
@@ -176,12 +249,32 @@ CREATE TABLE form_submissions (
 CREATE TABLE activities (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-    lead_id uuid NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+    lead_id uuid NOT NULL,
     actor_user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
     type text NOT NULL,
     data jsonb,
-    created_at timestamptz DEFAULT now()
+    created_at timestamptz DEFAULT now(),
+
+    FOREIGN KEY (lead_id, organization_id) REFERENCES leads(id, organization_id) ON DELETE CASCADE
 );
+
+-- -----------------------------------------------------------------------------
+-- AUTOMATION: updated_at
+-- -----------------------------------------------------------------------------
+
+-- Apply updated_at trigger to relevant tables
+DO $$
+DECLARE
+    t text;
+BEGIN
+    FOR t IN
+        SELECT table_name FROM information_schema.columns
+        WHERE column_name = 'updated_at' AND table_schema = 'public'
+    LOOP
+        EXECUTE format('CREATE TRIGGER tr_update_%I BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION private.set_updated_at()', t, t);
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql;
 
 -- -----------------------------------------------------------------------------
 -- MULTI-TENANCY & RLS
@@ -202,87 +295,98 @@ ALTER TABLE leads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE form_submissions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE activities ENABLE ROW LEVEL SECURITY;
 
--- Policies: users can only access data belonging to organizations they are members of.
--- We use a helper function or a direct check against organization_members.
+-- Organizations Policies
+CREATE POLICY "Members can view their organizations" ON organizations
+    FOR SELECT USING (private.is_member_of(id));
 
--- Helper to check if user belongs to organization
--- Since we are in a migration, we can create a function to simplify policies.
-CREATE OR REPLACE FUNCTION public.is_member_of(org_id uuid)
-RETURNS boolean AS $$
-BEGIN
-  RETURN EXISTS (
-    SELECT 1 FROM public.organization_members
-    WHERE organization_id = org_id AND user_id = auth.uid()
-  );
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+CREATE POLICY "Admins can update their organizations" ON organizations
+    FOR UPDATE USING (private.is_org_admin(id));
 
--- Organizations Policy
-CREATE POLICY "Users can view organizations they belong to" ON organizations
-    FOR SELECT USING (EXISTS (
-        SELECT 1 FROM organization_members
-        WHERE organization_id = organizations.id AND user_id = auth.uid()
-    ));
+-- Organization Members Policies
+CREATE POLICY "Members can view their organization memberships" ON organization_members
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM organization_members om
+            WHERE om.organization_id = organization_members.organization_id
+              AND om.user_id = auth.uid()
+        )
+    );
 
--- Organization Members Policy
-CREATE POLICY "Members can view their own membership" ON organization_members
-    FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY "Admins can manage memberships" ON organization_members
+    FOR ALL USING (private.is_org_admin(organization_id));
 
--- Profiles Policy
-CREATE POLICY "Users can view profiles of people in their organization" ON profiles
+-- Profiles Policies
+CREATE POLICY "Users can view their own profile" ON profiles
+    FOR SELECT USING (id = auth.uid());
+
+CREATE POLICY "Members can view profiles of their org mates" ON profiles
     FOR SELECT USING (EXISTS (
         SELECT 1 FROM organization_members om1
         JOIN organization_members om2 ON om1.organization_id = om2.organization_id
         WHERE om1.user_id = auth.uid() AND om2.user_id = profiles.id
     ));
 
--- General Policy for all other multi-tenant tables
--- We repeat this for each table that has organization_id.
+CREATE POLICY "Users can update their own profile" ON profiles
+    FOR UPDATE USING (id = auth.uid());
+
+-- Configuration Policies (Services, Forms, Pipelines, Stages)
+-- SELECT: Any member
+-- INSERT/UPDATE/DELETE: Owner/Admin
 
 -- Services
-CREATE POLICY "Users can access services of their organization" ON services
-    FOR ALL USING (is_member_of(organization_id));
+CREATE POLICY "Members can view services" ON services FOR SELECT USING (private.is_member_of(organization_id));
+CREATE POLICY "Admins can manage services" ON services FOR ALL USING (private.is_org_admin(organization_id));
 
 -- Forms
-CREATE POLICY "Users can access forms of their organization" ON forms
-    FOR ALL USING (is_member_of(organization_id));
+CREATE POLICY "Members can view forms" ON forms FOR SELECT USING (private.is_member_of(organization_id));
+CREATE POLICY "Admins can manage forms" ON forms FOR ALL USING (private.is_org_admin(organization_id));
 
 -- Form Steps
-CREATE POLICY "Users can access form steps of their organization" ON form_steps
-    FOR ALL USING (EXISTS (
-        SELECT 1 FROM forms f WHERE f.id = form_steps.form_id AND is_member_of(f.organization_id)
-    ));
+CREATE POLICY "Members can view form steps" ON form_steps FOR SELECT USING (
+    EXISTS (SELECT 1 FROM forms f WHERE f.id = form_steps.form_id AND private.is_member_of(f.organization_id))
+);
+CREATE POLICY "Admins can manage form steps" ON form_steps FOR ALL USING (
+    EXISTS (SELECT 1 FROM forms f WHERE f.id = form_steps.form_id AND private.is_org_admin(f.organization_id))
+);
 
 -- Form Fields
-CREATE POLICY "Users can access form fields of their organization" ON form_fields
-    FOR ALL USING (EXISTS (
-        SELECT 1 FROM form_steps fs
-        JOIN forms f ON fs.form_id = f.id
-        WHERE fs.id = form_fields.step_id AND is_member_of(f.organization_id)
-    ));
+CREATE POLICY "Members can view form fields" ON form_fields FOR SELECT USING (
+    EXISTS (SELECT 1 FROM form_steps fs JOIN forms f ON fs.form_id = f.id WHERE fs.id = form_fields.step_id AND private.is_member_of(f.organization_id))
+);
+CREATE POLICY "Admins can manage form fields" ON form_fields FOR ALL USING (
+    EXISTS (SELECT 1 FROM form_steps fs JOIN forms f ON fs.form_id = f.id WHERE fs.id = form_fields.step_id AND private.is_org_admin(f.organization_id))
+);
 
 -- Pipelines
-CREATE POLICY "Users can access pipelines of their organization" ON pipelines
-    FOR ALL USING (is_member_of(organization_id));
+CREATE POLICY "Members can view pipelines" ON pipelines FOR SELECT USING (private.is_member_of(organization_id));
+CREATE POLICY "Admins can manage pipelines" ON pipelines FOR ALL USING (private.is_org_admin(organization_id));
 
 -- Pipeline Stages
-CREATE POLICY "Users can access pipeline stages of their organization" ON pipeline_stages
-    FOR ALL USING (EXISTS (
-        SELECT 1 FROM pipelines p WHERE p.id = pipeline_stages.pipeline_id AND is_member_of(p.organization_id)
-    ));
+CREATE POLICY "Members can view pipeline stages" ON pipeline_stages FOR SELECT USING (
+    EXISTS (SELECT 1 FROM pipelines p WHERE p.id = pipeline_stages.pipeline_id AND private.is_member_of(p.organization_id))
+);
+CREATE POLICY "Admins can manage pipeline stages" ON pipeline_stages FOR ALL USING (
+    EXISTS (SELECT 1 FROM pipelines p WHERE p.id = pipeline_stages.pipeline_id AND private.is_org_admin(p.organization_id))
+);
 
--- Contacts
-CREATE POLICY "Users can access contacts of their organization" ON contacts
-    FOR ALL USING (is_member_of(organization_id));
+-- CRM Policies (Contacts, Leads)
+-- SELECT/INSERT/UPDATE/DELETE: Any member
 
--- Leads
-CREATE POLICY "Users can access leads of their organization" ON leads
-    FOR ALL USING (is_member_of(organization_id));
+CREATE POLICY "Members can manage contacts" ON contacts FOR ALL USING (private.is_member_of(organization_id));
+CREATE POLICY "Members can manage leads" ON leads FOR ALL USING (private.is_member_of(organization_id));
 
--- Form Submissions
-CREATE POLICY "Users can access submissions of their organization" ON form_submissions
-    FOR ALL USING (is_member_of(organization_id));
+-- Form Submissions Policies
+-- Immutable: Only SELECT for members. INSERT handled by service_role.
+CREATE POLICY "Members can view submissions" ON form_submissions
+    FOR SELECT USING (private.is_member_of(organization_id));
 
--- Activities
-CREATE POLICY "Users can access activities of their organization" ON activities
-    FOR ALL USING (is_member_of(organization_id));
+-- Activities Policies
+-- SELECT/INSERT for members. No UPDATE/DELETE.
+CREATE POLICY "Members can view activities" ON activities
+    FOR SELECT USING (private.is_member_of(organization_id));
+
+CREATE POLICY "Members can create activities" ON activities
+    FOR INSERT WITH CHECK (
+        private.is_member_of(organization_id) AND
+        (actor_user_id IS NULL OR actor_user_id = auth.uid())
+    );
