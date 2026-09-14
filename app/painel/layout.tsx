@@ -1,8 +1,9 @@
 'use client';
 
 import styles from "./layout.module.css";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
+import { createClient } from '@/lib/supabase/client';
 
 export default function PainelLayout({
   children,
@@ -10,6 +11,14 @@ export default function PainelLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const supabase = createClient();
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/login');
+    router.refresh();
+  };
 
   const navItems = [
     { label: "Visão geral", href: "/painel", icon: "📊" },
@@ -56,6 +65,13 @@ export default function PainelLayout({
             <span className={styles.userRole}>Administrador</span>
           </div>
           <div className={styles.onlineIndicator} />
+          <button
+            onClick={handleLogout}
+            className={styles.logoutBtn}
+            title="Sair da conta"
+          >
+            Logout
+          </button>
         </div>
       </aside>
 

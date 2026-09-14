@@ -121,6 +121,7 @@ Colocar a Iluminar em produção: fluxo real de captação de leads via `/f/ilum
 - [x] Limpeza arquitetural pré-Supabase: remoção de `getCurrentOrganizationConfig()` (não utilizada).
 - [x] FASE D1: FUNDAÇÃO DO BANCO DE DADOS (Schema, RLS, Seeds e Documentação).
 - [x] FASE D2: Conexão ao Supabase remoto e aplicação de migrations.
+- [x] FASE D3: Implementação de Autenticação Supabase e Proteção do Painel.
 
 ## Próxima grande fase
 Supabase remoto + Auth + persistência real (Substituição do localStorage).

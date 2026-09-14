@@ -122,6 +122,23 @@
   position: relative;
 }
 
+.logoutBtn {
+  background: transparent;
+  border: 1px solid #475569;
+  color: #94A3B8;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.logoutBtn:hover {
+  background: #ef444420;
+  color: #ef4444;
+  border-color: #ef4444;
+}
+
 .avatar {
   width: 36px;
   height: 36px;
