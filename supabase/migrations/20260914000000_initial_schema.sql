@@ -71,6 +71,9 @@ GRANT EXECUTE ON FUNCTION private.is_member_of(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION private.is_org_admin(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION private.is_org_owner(uuid) TO authenticated;
 
+-- Explicitly revoke internal maintenance functions just in case (redundant but safe)
+REVOKE EXECUTE ON FUNCTION private.set_updated_at() FROM PUBLIC, authenticated;
+
 -- -----------------------------------------------------------------------------
 -- 1. ORGANIZATIONS
 -- -----------------------------------------------------------------------------
@@ -322,6 +325,11 @@ BEGIN
     RETURN OLD;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
+
+-- Revoke execute from authenticated for maintenance functions
+REVOKE EXECUTE ON FUNCTION private.cleanup_service_deletion() FROM PUBLIC, authenticated;
+REVOKE EXECUTE ON FUNCTION private.cleanup_form_deletion() FROM PUBLIC, authenticated;
+REVOKE EXECUTE ON FUNCTION private.cleanup_member_deletion() FROM PUBLIC, authenticated;
 
 -- Apply updated_at trigger
 DO $$
