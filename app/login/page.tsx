@@ -2,16 +2,17 @@
 
 import React, { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import styles from './login.module.css';
 
-export default function LoginPage({ searchParams }: { searchParams: { next?: string } }) {
+export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -30,7 +31,7 @@ export default function LoginPage({ searchParams }: { searchParams: { next?: str
       }
 
       // Security check for 'next' parameter to prevent open redirects
-      const next = searchParams.next;
+      const next = searchParams.get('next');
       const safeNext = (next && next.startsWith('/') && !next.startsWith('//'))
         ? next
         : '/painel';
