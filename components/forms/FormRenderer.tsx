@@ -39,6 +39,7 @@ export default function FormRenderer({ orgConfig, formConfig }: FormRendererProp
 
   const updateField = (fieldId: string, value: string) => {
     setDetailError(null);
+    setError(null);
     setFormData(current => {
       const next = { ...current, [fieldId]: value };
 
@@ -58,6 +59,7 @@ export default function FormRenderer({ orgConfig, formConfig }: FormRendererProp
       category: serviceLabel,
     });
     setDetailError(null);
+    setError(null);
     setStep('details');
   };
 
@@ -87,23 +89,50 @@ export default function FormRenderer({ orgConfig, formConfig }: FormRendererProp
     event.preventDefault();
     if (loading) return;
 
+    const name = (formData.name || '').trim();
+    const phoneDigits = (formData.whatsapp || '').replace(/\D/g, '');
+
+    if (name.length < 2) {
+      setError('Informe seu nome para continuarmos.');
+      return;
+    }
+
+    if (phoneDigits.length < 10 || phoneDigits.length > 13) {
+      setError('Informe um WhatsApp válido com DDD.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
+      const searchParams = new URLSearchParams(window.location.search);
+      const metadata = {
+        landingPage: window.location.href,
+        referrer: document.referrer || '',
+        utmSource: searchParams.get('utm_source') || '',
+        utmMedium: searchParams.get('utm_medium') || '',
+        utmCampaign: searchParams.get('utm_campaign') || '',
+        utmContent: searchParams.get('utm_content') || '',
+        utmTerm: searchParams.get('utm_term') || '',
+      };
+
       const response = await fetch(`/api/forms/${formConfig.slug}/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           serviceId: formData.serviceId,
-          answers: formData,
+          answers: {
+            ...formData,
+            name,
+          },
+          metadata,
         }),
       });
 
       const result = (await response.json()) as {
         success?: boolean;
         protocol?: string;
-        leadId?: string;
         error?: string;
       };
 
@@ -112,7 +141,27 @@ export default function FormRenderer({ orgConfig, formConfig }: FormRendererProp
       }
 
       localStorage.setItem('leadflow_last_protocol', result.protocol || '');
-      localStorage.setItem('leadflow_last_lead_id', result.leadId || '');
+      localStorage.setItem('leadflow_last_org_name', orgConfig.name);
+      localStorage.removeItem('leadflow_last_lead_id');
+
+      if (orgConfig.publicContact?.whatsapp) {
+        localStorage.setItem('leadflow_last_support_whatsapp', orgConfig.publicContact.whatsapp);
+      } else {
+        localStorage.removeItem('leadflow_last_support_whatsapp');
+      }
+
+      if (orgConfig.publicContact?.websiteUrl) {
+        localStorage.setItem('leadflow_last_return_url', orgConfig.publicContact.websiteUrl);
+      } else {
+        localStorage.removeItem('leadflow_last_return_url');
+      }
+
+      if (orgConfig.publicContact?.websiteLabel) {
+        localStorage.setItem('leadflow_last_return_label', orgConfig.publicContact.websiteLabel);
+      } else {
+        localStorage.removeItem('leadflow_last_return_label');
+      }
+
       router.push('/sucesso');
     } catch (err: any) {
       setError(err.message || 'Não foi possível enviar agora. Tente novamente.');
@@ -167,6 +216,7 @@ export default function FormRenderer({ orgConfig, formConfig }: FormRendererProp
             required={field.required}
             onChange={event => updateField(field.id, event.target.value)}
             placeholder={field.placeholder}
+            maxLength={2000}
           />
           {field.id === 'notes' && (
             <span className={styles.fieldHint}>Se precisar, você também poderá enviar fotos pelo WhatsApp depois.</span>
@@ -188,6 +238,7 @@ export default function FormRenderer({ orgConfig, formConfig }: FormRendererProp
           required={field.required}
           onChange={event => updateField(field.id, event.target.value)}
           placeholder={field.placeholder}
+          maxLength={field.id === 'whatsapp' ? 20 : 160}
           autoComplete={field.id === 'name' ? 'name' : field.id === 'whatsapp' ? 'tel' : undefined}
         />
       </div>
@@ -266,7 +317,7 @@ export default function FormRenderer({ orgConfig, formConfig }: FormRendererProp
               <form className={styles.formGrid} onSubmit={handleDetailsContinue} noValidate>
                 {detailsStep?.fields.map(renderField)}
 
-                {detailError && <div className={styles.errorMessage}>{detailError}</div>}
+                {detailError && <div className={styles.errorMessage} role="alert">{detailError}</div>}
 
                 <div className={styles.navButtons}>
                   <button type="button" className={styles.btnSecondary} onClick={prevStep}>Voltar</button>
@@ -286,7 +337,7 @@ export default function FormRenderer({ orgConfig, formConfig }: FormRendererProp
               <form className={styles.formGrid} onSubmit={handleSubmit}>
                 {contactStep?.fields.map(renderField)}
 
-                {error && <div className={styles.errorMessage}>{error}</div>}
+                {error && <div className={styles.errorMessage} role="alert">{error}</div>}
 
                 <div className={styles.summaryStrip}>
                   <div>
