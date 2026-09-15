@@ -1,0 +1,133 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 15, 23, 0.44);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 12vh 16px 16px;
+  z-index: 120;
+}
+
+.panel {
+  width: 100%;
+  max-width: 520px;
+  background: var(--lf-surface);
+  border: 1px solid var(--lf-border);
+  border-radius: var(--lf-radius-lg);
+  box-shadow: 0 24px 48px -12px rgba(16, 24, 40, 0.18);
+  overflow: hidden;
+  animation: panelIn 150ms ease;
+}
+
+@keyframes panelIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.searchRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--lf-border);
+}
+
+.searchIcon {
+  color: var(--lf-text-muted);
+  flex-shrink: 0;
+}
+
+.input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 15px;
+  color: var(--lf-text);
+  background: transparent;
+  font-family: inherit;
+}
+
+.input::placeholder {
+  color: var(--lf-text-muted);
+}
+
+.kbd {
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--lf-text-secondary);
+  background: var(--lf-surface-soft);
+  border: 1px solid var(--lf-border);
+  border-radius: 5px;
+  padding: 2px 6px;
+}
+
+.results {
+  padding: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  border-radius: var(--lf-radius-sm);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: background var(--lf-transition);
+}
+
+.itemActive {
+  background: var(--lf-primary-soft);
+}
+
+.itemIcon {
+  color: var(--lf-text-secondary);
+  flex-shrink: 0;
+}
+
+.itemActive .itemIcon {
+  color: var(--lf-primary);
+}
+
+.itemLabel {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--lf-text);
+}
+
+.enterIcon {
+  color: var(--lf-primary);
+}
+
+.empty {
+  padding: 24px 12px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--lf-text-muted);
+  margin: 0;
+}
+
+.footer {
+  display: flex;
+  gap: 16px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--lf-border);
+  font-size: 12px;
+  color: var(--lf-text-muted);
+  background: var(--lf-surface-soft);
+}

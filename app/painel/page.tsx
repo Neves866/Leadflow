@@ -3,8 +3,20 @@
 import styles from "./painel.module.css";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";  
+import Link from "next/link";
+import {
+  Plus,
+  CalendarDays,
+  Sparkles,
+  Hourglass,
+  Trophy,
+  CircleDollarSign,
+} from "lucide-react";
+import PageHeader from "@/components/ui/PageHeader";
+import StatusBadge from "@/components/ui/StatusBadge";
 import { createClient } from "@/lib/supabase/client";
+
+const STAGE_BAR_COLORS = ['#2563EB', '#7C3AED', '#F79009', '#F04438', '#12B76A'];
 
 interface DashboardLead {
   id: string;
@@ -88,25 +100,32 @@ export default function PainelPage() {
     valorPotencial: lead.potential_value || 0,
   }));
 
+  const pipelineData = [
+    { name: 'Novo', value: pipelineStats('Novo') },
+    { name: 'Qualificado', value: pipelineStats('Qualificado') },
+    { name: 'Orçamento', value: pipelineStats('Orçamento') },
+    { name: 'Negociação', value: pipelineStats('Negociação') },
+    { name: 'Fechado', value: pipelineStats('Fechado') },
+  ];
+  const maxPipelineCount = Math.max(...pipelineData.map(item => item.value), 1);
+
   return (
     <main className={styles.container}>
-      <header className={styles.header}>
-        <div className={styles.headerText}>
-          <p className={styles.greeting}>Bom dia 👋</p>
-          <h1 className={styles.title}>Visão Geral</h1>
-          <p className={styles.subtitle}>Acompanhe sua operação comercial e as oportunidades mais recentes.</p>
-        </div>
-
-        <button className={styles.button} onClick={() => router.push('/painel/leads/novo')}>
-          <span className={styles.buttonIcon}>+</span> Novo Lead
-        </button>
-      </header>
+      <PageHeader
+        title="Visão geral"
+        subtitle="Seu centro de controle comercial."
+        actions={
+          <button className={styles.button} onClick={() => router.push('/painel/leads/novo')}>
+            <Plus size={16} /> Novo Lead
+          </button>
+        }
+      />
 
       <section className={styles.cards}>
         <article className={styles.card}>
           <div className={styles.cardHeader}>
             <span className={styles.cardLabel}>Leads Hoje</span>
-            <span className={styles.cardIcon}>📅</span>
+            <CalendarDays size={16} className={styles.cardIcon} />
           </div>
           <strong className={styles.cardValue}>{leadsHoje}</strong>
           <span className={styles.cardFooter}>Novas oportunidades</span>
@@ -115,7 +134,7 @@ export default function PainelPage() {
         <article className={styles.card}>
           <div className={styles.cardHeader}>
             <span className={styles.cardLabel}>Novos Leads</span>
-            <span className={styles.cardIcon}>✨</span>
+            <Sparkles size={16} className={styles.cardIcon} />
           </div>
           <strong className={styles.cardValue}>{novosLeads}</strong>
           <span className={styles.cardFooter}>Aguardando contato</span>
@@ -124,7 +143,7 @@ export default function PainelPage() {
         <article className={styles.card}>
           <div className={styles.cardHeader}>
             <span className={styles.cardLabel}>Em Negociação</span>
-            <span className={styles.cardIcon}>⏳</span>
+            <Hourglass size={16} className={styles.cardIcon} />
           </div>
           <strong className={styles.cardValue}>{emNegociacao}</strong>
           <span className={styles.cardFooter}>Pipeline ativo</span>
@@ -133,7 +152,7 @@ export default function PainelPage() {
         <article className={styles.card}>
           <div className={styles.cardHeader}>
             <span className={styles.cardLabel}>Fechados</span>
-            <span className={styles.cardIcon}>🏆</span>
+            <Trophy size={16} className={styles.cardIcon} />
           </div>
           <strong className={styles.cardValue}>{fechados}</strong>
           <span className={styles.cardFooter}>Conversões</span>
@@ -142,7 +161,7 @@ export default function PainelPage() {
         <article className={`${styles.card} ${styles.cardHighlight}`}>
           <div className={styles.cardHeader}>
             <span className={styles.cardLabel}>Valor Potencial</span>
-            <span className={styles.cardIcon}>💰</span>
+            <CircleDollarSign size={16} className={styles.cardIcon} />
           </div>
           <strong className={styles.cardValue}>
             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valorPotencial)}
@@ -154,44 +173,27 @@ export default function PainelPage() {
       <section className={styles.section}>
         <div className={styles.sectionHeader}>
           <h2 className={styles.title}>Pipeline Comercial</h2>
-          <div className={styles.pipelineLegend}>Progresso de Vendas</div>
+          <span className={styles.pipelineLegend}>Progresso de vendas</span>
         </div>
 
         <div className={styles.pipeline}>
-          <div className={`${styles.pipelineItem} ${styles.statusNovo}`}>
-            <div className={styles.pipelineStep}>
-              <span className={styles.stepName}>Novo</span>
-              <span className={styles.stepValue}>{pipelineStats('Novo')}</span>
+          {pipelineData.map((item, index) => (
+            <div key={item.name} className={styles.pipelineRow}>
+              <div className={styles.pipelineRowHeader}>
+                <span className={styles.stepName}>{item.name}</span>
+                <span className={styles.stepValue}>{item.value}</span>
+              </div>
+              <div className={styles.stepBarTrack}>
+                <span
+                  className={styles.stepBarFill}
+                  style={{
+                    width: `${Math.round((item.value / maxPipelineCount) * 100)}%`,
+                    background: STAGE_BAR_COLORS[index % STAGE_BAR_COLORS.length],
+                  }}
+                />
+              </div>
             </div>
-          </div>
-          <div className={styles.pipelineConnector} />
-          <div className={`${styles.pipelineItem} ${styles.statusQualificado}`}>
-            <div className={styles.pipelineStep}>
-              <span className={styles.stepName}>Qualificado</span>
-              <span className={styles.stepValue}>{pipelineStats('Qualificado')}</span>
-            </div>
-          </div>
-          <div className={styles.pipelineConnector} />
-          <div className={`${styles.pipelineItem} ${styles.statusOrcamento}`}>
-            <div className={styles.pipelineStep}>
-              <span className={styles.stepName}>Orçamento</span>
-              <span className={styles.stepValue}>{pipelineStats('Orçamento')}</span>
-            </div>
-          </div>
-          <div className={styles.pipelineConnector} />
-          <div className={`${styles.pipelineItem} ${styles.statusNegociacao}`}>
-            <div className={styles.pipelineStep}>
-              <span className={styles.stepName}>Negociação</span>
-              <span className={styles.stepValue}>{pipelineStats('Negociação')}</span>
-            </div>
-          </div>
-          <div className={styles.pipelineConnector} />
-          <div className={`${styles.pipelineItem} ${styles.statusFechado}`}>
-            <div className={styles.pipelineStep}>
-              <span className={styles.stepName}>Fechado</span>
-              <span className={styles.stepValue}>{pipelineStats('Fechado')}</span>
-            </div>
-          </div>
+          ))}
         </div>
       </section>
 
@@ -226,9 +228,7 @@ export default function PainelPage() {
                 <td className={styles.serviceCell}>{lead.servico}</td>
                 <td>{lead.origem}</td>
                 <td>
-                  <span className={`${styles.statusBadge} ${styles[`badge${lead.status.replace(/\s+/g, '')}`]}`}>
-                    {lead.status}
-                  </span>
+                  <StatusBadge status={lead.status} />
                 </td>
                 <td className={styles.valueCell}>
                   {lead.valorPotencial === 0

@@ -1,17 +1,103 @@
 @import "tailwindcss";
 
+/* ============================================================
+   LEADFLOW COMMAND CENTER — Design tokens
+   ============================================================ */
 :root {
   color-scheme: light;
-  background: #f8fafc;
-  color: #111827;
+
+  /* Surfaces */
+  --lf-bg: #F4F6F8;
+  --lf-surface: #FFFFFF;
+  --lf-surface-soft: #F8FAFC;
+  --lf-surface-hover: #F2F4F7;
+
+  /* Sidebar */
+  --lf-sidebar: #0B0F17;
+  --lf-sidebar-soft: #121824;
+  --lf-sidebar-hover: #171E2B;
+
+  /* Text */
+  --lf-text: #14171F;
+  --lf-text-secondary: #667085;
+  --lf-text-muted: #98A2B3;
+
+  /* Borders */
+  --lf-border: #E4E7EC;
+  --lf-border-strong: #D0D5DD;
+
+  /* Brand */
+  --lf-primary: #2563EB;
+  --lf-primary-hover: #1D4ED8;
+  --lf-primary-soft: #EFF6FF;
+  --lf-electric: #3B82F6;
+  --lf-ai: #06B6D4;
+
+  /* Feedback */
+  --lf-success: #12B76A;
+  --lf-success-soft: #ECFDF3;
+  --lf-warning: #F79009;
+  --lf-warning-soft: #FFFAEB;
+  --lf-error: #F04438;
+  --lf-error-soft: #FEF3F2;
+
+  /* Accents */
+  --lf-purple: #7C3AED;
+  --lf-purple-soft: #F5F3FF;
+
+  /* Elevation */
+  --lf-shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.04);
+  --lf-shadow-sm: 0 1px 3px rgba(16, 24, 40, 0.08);
+
+  /* Radius */
+  --lf-radius-sm: 8px;
+  --lf-radius-md: 12px;
+  --lf-radius-lg: 16px;
+
+  /* Motion */
+  --lf-transition: 160ms ease;
+
+  background: var(--lf-bg);
+  color: var(--lf-text);
   font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
 }
 
 body {
   margin: 0;
+  background: var(--lf-bg);
+  color: var(--lf-text);
+  -webkit-font-smoothing: antialiased;
 }
 
 a {
   color: inherit;
+}
+
+::selection {
+  background: rgba(37, 99, 235, 0.14);
+}
+
+/* Subtle technical texture for specific hero areas */
+.lf-texture {
+  background-image: radial-gradient(rgba(37, 99, 235, 0.05) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Shared focus ring */
+.lf-focus:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible,
+a:focus-visible {
+  outline: none;
+  border-color: var(--lf-electric);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.10);
 }

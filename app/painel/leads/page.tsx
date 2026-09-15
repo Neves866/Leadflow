@@ -3,7 +3,12 @@
 import styles from "./leads.module.css";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { List, Columns3, Plus } from "lucide-react";
+import PageHeader from "@/components/ui/PageHeader";
+import StatusBadge from "@/components/ui/StatusBadge";
 import { createClient } from "@/lib/supabase/client";
+
+const STAGE_COLORS = ['#2563EB', '#7C3AED', '#F79009', '#F04438', '#12B76A', '#06B6D4'];
 
 interface Lead {
   id: string;
@@ -209,14 +214,15 @@ export default function LeadsPage() {
 
   return (
     <main className={styles.container}>
-      <header className={styles.header}>
-        <div>
-          <h1 className={styles.title}>Leads</h1>
-          <p className={styles.subtitle}>Gerencie todas as oportunidades recebidas.</p>
-        </div>
-
-        <button className={styles.button} onClick={() => router.push('/painel/leads/novo')}>+ Novo lead</button>
-      </header>
+      <PageHeader
+        title="Leads"
+        subtitle="Gerencie seu pipeline e oportunidades."
+        actions={
+          <button className={styles.button} onClick={() => router.push('/painel/leads/novo')}>
+            <Plus size={16} /> Novo lead
+          </button>
+        }
+      />
 
       {loading ? (
         <div className={styles.loading}>Carregando leads...</div>
@@ -233,14 +239,14 @@ export default function LeadsPage() {
                 className={view === 'lista' ? styles.active : ''}
                 onClick={() => setView('lista')}
               >
-                Lista
+                <List size={15} /> Lista
               </button>
               <button
                 type="button"
                 className={view === 'funil' ? styles.active : ''}
                 onClick={() => setView('funil')}
               >
-                Funil
+                <Columns3 size={15} /> Funil
               </button>
             </div>
 
@@ -290,7 +296,7 @@ export default function LeadsPage() {
                       <td>{lead.servico}</td>
                       <td>{lead.origem}</td>
                       <td>
-                        <span className={styles.statusBadge}>{lead.status}</span>
+                        <StatusBadge status={lead.status} />
                       </td>
                       <td>{lead.valorPotencial === 0
                         ? 'A definir'
@@ -309,7 +315,7 @@ export default function LeadsPage() {
               )}
 
               <div className={styles.kanban}>
-                {stages.map(stage => {
+                {stages.map((stage, index) => {
                   const stageLeads = visibleLeads.filter(lead => lead.stageId === stage.id);
                   const stageTotal = stageLeads.reduce((acc, lead) => acc + (lead.potentialValue ?? 0), 0);
 
@@ -332,11 +338,15 @@ export default function LeadsPage() {
                       }}
                     >
                       <div className={styles.kanbanHeader}>
-                        <span className={styles.stageName}>{stage.name}</span>
-                        <span className={styles.stageMeta}>
-                          {stageLeads.length} {stageLeads.length === 1 ? 'lead' : 'leads'}
-                        </span>
-                        <span className={styles.stageMeta}>{formatCurrency(stageTotal)}</span>
+                        <div className={styles.stageTitleRow}>
+                          <span
+                            className={styles.stageDot}
+                            style={{ background: STAGE_COLORS[index % STAGE_COLORS.length] }}
+                          />
+                          <span className={styles.stageName}>{stage.name}</span>
+                          <span className={styles.stageCount}>{stageLeads.length}</span>
+                        </div>
+                        <span className={styles.stageTotal}>{formatCurrency(stageTotal)}</span>
                       </div>
 
                       <div className={styles.kanbanCards}>
