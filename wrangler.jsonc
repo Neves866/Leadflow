@@ -4,7 +4,7 @@
  */
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "iluminar-leadflow",
+	"name": "leadflow",
 	"compatibility_date": "2026-08-27",
 	"main": "vinext/server/fetch-handler",
 	"assets": {
@@ -42,7 +42,7 @@
 	// "vars": {  "MY_VARIABLE": "production_value" }
 	/**
 	 * Service Bindings (communicate between multiple Workers)
-	 * https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings
+	 * https://developers.cloudflare.com/workers/runtime-apis/bindings/
 	 */
 	// "services": [  {   "binding": "MY_SERVICE",   "service": "my-service"  } ]
 }
