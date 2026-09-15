@@ -1,87 +1,194 @@
 .page {
   min-height: 100vh;
-  background: #f3f4f6;
+  background:
+    radial-gradient(circle at top left, rgba(21, 101, 216, 0.14), transparent 32%),
+    linear-gradient(180deg, #eef4fb 0%, #f7f9fc 100%);
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 20px;
-  font-family: Arial, sans-serif;
+  padding: 24px;
+  color: #111827;
 }
 
 .container {
-  background: white;
   width: 100%;
-  max-width: 500px;
+  max-width: 560px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
   border-radius: 24px;
-  padding: 48px 32px;
-  text-align: center;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+  padding: 44px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.1);
 }
 
-.icon {
-  font-size: 64px;
-  margin-bottom: 24px;
+.successMark {
+  width: 58px;
+  height: 58px;
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 20px;
+  background: #ecfdf3;
+  color: #079455;
+  font-size: 30px;
+  font-weight: 800;
+}
+
+.eyebrow {
+  display: block;
+  margin-bottom: 10px;
+  color: #1565d8;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .title {
-  font-size: 28px;
-  color: #111827;
-  margin: 0 0 16px;
+  margin: 0 0 12px;
+  font-size: clamp(28px, 5vw, 38px);
+  line-height: 1.08;
+  letter-spacing: -0.035em;
 }
 
 .subtitle {
+  margin: 0;
+  color: #667085;
   font-size: 16px;
-  color: #6b7280;
-  line-height: 1.5;
-  margin: 0 0 32px;
+  line-height: 1.65;
 }
 
 .protocol {
-  background: #f9fafb;
-  padding: 16px;
-  border-radius: 12px;
+  margin: 28px 0;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid #e4e7ec;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 32px;
-  border: 1px solid #e5e7eb;
+  justify-content: space-between;
+  gap: 16px;
 }
 
 .label {
-  color: #6b7280;
-  font-size: 14px;
+  color: #667085;
+  font-size: 13px;
 }
 
 .value {
-  font-weight: 700;
-  color: #111827;
-  font-size: 16px;
+  color: #101828;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+}
+
+.nextSteps {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 28px 0;
+  border: 1px solid #e4e7ec;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.nextStepItem {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 15px 16px;
+  background: #ffffff;
+  border-bottom: 1px solid #eef0f3;
+}
+
+.nextStepItem:last-child {
+  border-bottom: none;
+}
+
+.nextStepItem span {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: #eff6ff;
+  color: #1565d8;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.nextStepItem p {
+  margin: 0;
+  color: #475467;
+  font-size: 14px;
+  line-height: 1.45;
 }
 
 .actions {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
+}
+
+.btnPrimary,
+.btnSecondary {
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  padding: 0 18px;
+  font-size: 15px;
+  font-weight: 750;
+  text-decoration: none;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
 }
 
 .btnPrimary {
-  background: #25d366;
-  color: white;
   border: none;
-  padding: 14px;
-  border-radius: 12px;
-  font-weight: 600;
+  background: #16a34a;
+  color: #ffffff;
   cursor: pointer;
-  font-size: 16px;
+  box-shadow: 0 8px 18px rgba(22, 163, 74, 0.18);
+}
+
+.btnPrimary:hover {
+  transform: translateY(-1px);
+  background: #15803d;
 }
 
 .btnSecondary {
-  background: #f3f4f6;
-  color: #4b5563;
-  border: none;
-  padding: 14px;
-  border-radius: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  font-size: 16px;
+  background: #ffffff;
+  color: #344054;
+  border: 1px solid #d0d5dd;
+}
+
+.btnSecondary:hover {
+  transform: translateY(-1px);
+  background: #f8fafc;
+}
+
+.footerNote {
+  margin: 18px 0 0;
+  color: #98a2b3;
+  font-size: 12px;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .page {
+    align-items: flex-start;
+    padding: 16px;
+  }
+
+  .container {
+    margin-top: 16px;
+    padding: 28px 20px;
+    border-radius: 20px;
+  }
+
+  .protocol {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
 }
