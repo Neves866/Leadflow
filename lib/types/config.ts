@@ -31,11 +31,8 @@ export interface ServiceConfig {
   id: string;
   label: string;
   icon: string;
-  // Optional template to compose the lead's "servico" description from form
-  // answers. Placeholders like {fieldId} are resolved from formData by the
-  // FormRenderer. When absent, the service label is used instead.
   servicoTemplate?: string;
-  formConfigId?: string; // Links to a specific form config if the service has unique questions
+  formConfigId?: string;
 }
 
 export interface BrandingConfig {
@@ -44,11 +41,18 @@ export interface BrandingConfig {
   logoUrl?: string;
 }
 
+export interface PublicContactConfig {
+  whatsapp?: string;
+  websiteUrl?: string;
+  websiteLabel?: string;
+}
+
 export interface OrganizationConfig {
   id: string;
   slug: string;
   name: string;
   branding: BrandingConfig;
+  publicContact?: PublicContactConfig;
   services: ServiceConfig[];
   forms: FormConfig[];
 }
