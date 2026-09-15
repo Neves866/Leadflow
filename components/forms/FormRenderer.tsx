@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { FormConfig, FormFieldConfig, OrganizationConfig } from '@/lib/types/config';
 import styles from './FormRenderer.module.css';
@@ -29,6 +29,32 @@ export default function FormRenderer({ orgConfig, formConfig }: FormRendererProp
   const detailsStep = formConfig.steps.find(item => item.id === 'details');
   const contactStep = formConfig.steps.find(item => item.id === 'contact');
   const selectedService = orgConfig.services.find(service => service.id === formData.serviceId);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedServiceId = params.get('service');
+    if (!requestedServiceId) return;
+
+    const service = orgConfig.services.find(item => item.id === requestedServiceId);
+    if (!service) return;
+
+    const requestedProblem = params.get('problem');
+    const problemField = detailsStep?.fields.find(
+      field => field.id === 'problem' && field.showWhen?.field === 'serviceId' && field.showWhen.equals === service.id
+    );
+    const validProblem = requestedProblem && problemField?.options?.some(option => option.value === requestedProblem)
+      ? requestedProblem
+      : '';
+
+    setFormData(current => ({
+      ...current,
+      urgency: current.urgency || 'Média',
+      serviceId: service.id,
+      category: service.label,
+      ...(validProblem ? { problem: validProblem } : {}),
+    }));
+    setStep('details');
+  }, [detailsStep, orgConfig.services]);
 
   const isVisible = (field: FormFieldConfig) => {
     if (!field.showWhen) return true;
@@ -115,6 +141,8 @@ export default function FormRenderer({ orgConfig, formConfig }: FormRendererProp
         utmCampaign: searchParams.get('utm_campaign') || '',
         utmContent: searchParams.get('utm_content') || '',
         utmTerm: searchParams.get('utm_term') || '',
+        gclid: searchParams.get('gclid') || '',
+        fbclid: searchParams.get('fbclid') || '',
       };
 
       const response = await fetch(`/api/forms/${formConfig.slug}/submit`, {
