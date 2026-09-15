@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { OrganizationConfig, FormConfig } from '@/lib/types/config';
+import { FormConfig, FormFieldConfig, OrganizationConfig } from '@/lib/types/config';
 import styles from './FormRenderer.module.css';
 
 interface FormRendererProps {
@@ -10,29 +10,83 @@ interface FormRendererProps {
   formConfig: FormConfig;
 }
 
+type Step = 'category' | 'details' | 'contact';
+
+const STEP_NUMBER: Record<Step, number> = {
+  category: 1,
+  details: 2,
+  contact: 3,
+};
+
 export default function FormRenderer({ orgConfig, formConfig }: FormRendererProps) {
   const router = useRouter();
-  const [step, setStep] = useState<'category' | 'details' | 'contact'>('category');
-  const [formData, setFormData] = useState<Record<string, string>>({
-    urgency: 'Média',
-  });
+  const [step, setStep] = useState<Step>('category');
+  const [formData, setFormData] = useState<Record<string, string>>({ urgency: 'Média' });
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleCategorySelect = (service: any) => {
-    setFormData({ ...formData, serviceId: service.id, category: service.label });
+  const detailsStep = formConfig.steps.find(item => item.id === 'details');
+  const contactStep = formConfig.steps.find(item => item.id === 'contact');
+  const selectedService = orgConfig.services.find(service => service.id === formData.serviceId);
+
+  const isVisible = (field: FormFieldConfig) => {
+    if (!field.showWhen) return true;
+    return formData[field.showWhen.field] === field.showWhen.equals;
+  };
+
+  const visibleDetailFields = detailsStep?.fields.filter(isVisible) ?? [];
+
+  const updateField = (fieldId: string, value: string) => {
+    setDetailError(null);
+    setFormData(current => {
+      const next = { ...current, [fieldId]: value };
+
+      if (fieldId === 'problem' && value !== 'Quero instalar') {
+        delete next.hasEquipment;
+        delete next.btus;
+      }
+
+      return next;
+    });
+  };
+
+  const handleCategorySelect = (serviceId: string, serviceLabel: string) => {
+    setFormData({
+      urgency: 'Média',
+      serviceId,
+      category: serviceLabel,
+    });
+    setDetailError(null);
     setStep('details');
   };
 
-  const nextStep = () => setStep('contact');
+  const handleDetailsContinue = (event: React.FormEvent) => {
+    event.preventDefault();
+
+    const missingRequired = visibleDetailFields.some(
+      field => field.required && !formData[field.id]?.trim()
+    );
+
+    if (missingRequired) {
+      setDetailError('Responda os campos principais para continuarmos.');
+      return;
+    }
+
+    setDetailError(null);
+    setStep('contact');
+  };
+
   const prevStep = () => {
+    setError(null);
     if (step === 'contact') setStep('details');
     else if (step === 'details') setStep('category');
   };
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (loading) return;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
     setLoading(true);
     setError(null);
 
@@ -46,147 +100,218 @@ export default function FormRenderer({ orgConfig, formConfig }: FormRendererProp
         }),
       });
 
-      const result = (await response.json()) as { success?: boolean; protocol?: string; leadId?: string; error?: string };
+      const result = (await response.json()) as {
+        success?: boolean;
+        protocol?: string;
+        leadId?: string;
+        error?: string;
+      };
 
       if (!response.ok) {
-        throw new Error(result.error || 'Erro ao enviar formulário');
+        throw new Error(result.error || 'Erro ao enviar a solicitação');
       }
 
-      // Persist only minimal info for the /sucesso page to maintain current behavior
       localStorage.setItem('leadflow_last_protocol', result.protocol || '');
       localStorage.setItem('leadflow_last_lead_id', result.leadId || '');
-
       router.push('/sucesso');
     } catch (err: any) {
-      setError(err.message || 'Ocorreu um erro inesperado.');
+      setError(err.message || 'Não foi possível enviar agora. Tente novamente.');
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <div className={styles.page}>
-      <div className={styles.formContainer}>
-        <div className={styles.progress}>
-          <div className={`${styles.step} ${step === 'category' ? styles.active : ''}`}>1</div>
-          <div className={`${styles.step} ${step === 'details' || step === 'contact' ? styles.active : ''}`}>2</div>
-          <div className={`${styles.step} ${step === 'contact' ? styles.active : ''}`}>3</div>
-        </div>
+  const renderField = (field: FormFieldConfig) => {
+    if (!isVisible(field)) return null;
 
-        {step === 'category' && (
-          <div className={styles.stepContent}>
-            <h1 className={styles.title}>O que você precisa?</h1>
-            <p className={styles.subtitle}>Selecione a categoria do serviço para começarmos.</p>
-            <div className={styles.categoryGrid}>
-              {orgConfig.services.map(service => (
+    const value = formData[field.id] || '';
+
+    if (field.type === 'select') {
+      return (
+        <div key={`${field.id}-${field.showWhen?.equals ?? 'common'}`} className={styles.field}>
+          <label className={styles.fieldLabel}>
+            {field.label}
+            {field.required && <span className={styles.requiredMark}>*</span>}
+          </label>
+          <div className={styles.choiceGrid}>
+            {field.options?.map(option => {
+              const selected = value === option.value;
+              return (
                 <button
-                  key={service.id}
-                  className={styles.categoryCard}
-                  onClick={() => handleCategorySelect(service)}
+                  key={option.value}
+                  type="button"
+                  className={`${styles.choiceButton} ${selected ? styles.choiceButtonSelected : ''}`}
+                  onClick={() => updateField(field.id, option.value)}
+                  aria-pressed={selected}
                 >
-                  <span className={styles.categoryIcon}>{service.icon}</span>
-                  <span className={styles.categoryLabel}>{service.label}</span>
+                  <span>{option.label}</span>
+                  <span className={styles.choiceIndicator}>{selected ? '✓' : '›'}</span>
                 </button>
-              ))}
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    if (field.type === 'textarea') {
+      return (
+        <div key={field.id} className={styles.field}>
+          <label className={styles.fieldLabel} htmlFor={field.id}>
+            {field.label}
+            {field.required && <span className={styles.requiredMark}>*</span>}
+          </label>
+          <textarea
+            id={field.id}
+            value={value}
+            required={field.required}
+            onChange={event => updateField(field.id, event.target.value)}
+            placeholder={field.placeholder}
+          />
+          {field.id === 'notes' && (
+            <span className={styles.fieldHint}>Se precisar, você também poderá enviar fotos pelo WhatsApp depois.</span>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div key={field.id} className={styles.field}>
+        <label className={styles.fieldLabel} htmlFor={field.id}>
+          {field.label}
+          {field.required && <span className={styles.requiredMark}>*</span>}
+        </label>
+        <input
+          id={field.id}
+          type={field.type}
+          value={value}
+          required={field.required}
+          onChange={event => updateField(field.id, event.target.value)}
+          placeholder={field.placeholder}
+          autoComplete={field.id === 'name' ? 'name' : field.id === 'whatsapp' ? 'tel' : undefined}
+        />
+      </div>
+    );
+  };
+
+  const currentStep = STEP_NUMBER[step];
+
+  return (
+    <main className={styles.page}>
+      <section className={styles.shell}>
+        <div className={styles.brandBar}>
+          <div className={styles.brandIdentity}>
+            <div className={styles.brandMark}>I</div>
+            <div>
+              <strong>{orgConfig.name}</strong>
+              <span>Pedido de atendimento</span>
             </div>
           </div>
-        )}
+          <span className={styles.quickBadge}>Leva menos de 1 minuto</span>
+        </div>
 
-        {step === 'details' && (
-          <div className={styles.stepContent}>
-            <h1 className={styles.title}>Detalhes do Serviço</h1>
-            <p className={styles.subtitle}>Conte-nos mais sobre sua necessidade de {formData.category}.</p>
-
-            <form className={styles.formGrid}>
-              {formConfig.steps.find(s => s.id === 'details')?.fields.map(field => {
-                if (field.showWhen && formData[field.showWhen.field] !== field.showWhen.equals) {
-                  return null;
-                }
-
-                const value = formData[field.id] || '';
-
-                if (field.type === 'select') {
-                  return (
-                    <div key={field.id} className={styles.field}>
-                      <label>{field.label}</label>
-                      <select
-                        value={value}
-                        onChange={e => setFormData({...formData, [field.id]: e.target.value})}
-                      >
-                        <option value="">Selecione...</option>
-                        {field.options?.map(opt => (
-                          <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                  );
-                }
-
-                if (field.type === 'textarea') {
-                  return (
-                    <div key={field.id} className={styles.field}>
-                      <label>{field.label}</label>
-                      <textarea
-                        value={value}
-                        onChange={e => setFormData({...formData, [field.id]: e.target.value})}
-                        placeholder={field.placeholder}
-                      />
-                    </div>
-                  );
-                }
-
-                return (
-                  <div key={field.id} className={styles.field}>
-                    <label>{field.label}</label>
-                    <input
-                      type={field.type}
-                      placeholder={field.placeholder}
-                      value={value}
-                      onChange={e => setFormData({...formData, [field.id]: e.target.value})}
-                    />
-                  </div>
-                );
-              })}
-
-              <div className={styles.navButtons}>
-                <button type="button" className={styles.btnSecondary} onClick={prevStep}>Voltar</button>
-                <button type="button" className={styles.btnPrimary} onClick={nextStep}>Próximo</button>
-              </div>
-            </form>
+        <div className={styles.formContainer}>
+          <div className={styles.progressHeader}>
+            <span>Etapa {currentStep} de 3</span>
+            <span>{currentStep === 1 ? 'Serviço' : currentStep === 2 ? 'Detalhes' : 'Contato'}</span>
           </div>
-        )}
+          <div className={styles.progressTrack} aria-hidden="true">
+            <div className={styles.progressFill} style={{ width: `${(currentStep / 3) * 100}%` }} />
+          </div>
 
-        {step === 'contact' && (
-          <div className={styles.stepContent}>
-            <h1 className={styles.title}>Contato</h1>
-            <p className={styles.subtitle}>Quase lá! Como podemos entrar em contato com você?</p>
+          {step === 'category' && (
+            <div className={styles.stepContent}>
+              <span className={styles.eyebrow}>Vamos resolver isso</span>
+              <h1 className={styles.title}>Como podemos ajudar?</h1>
+              <p className={styles.subtitle}>
+                Escolha o que melhor representa o que você precisa. É rápido e sem compromisso.
+              </p>
 
-            <form className={styles.formGrid} onSubmit={handleSubmit}>
-              {formConfig.steps.find(s => s.id === 'contact')?.fields.map(field => (
-                <div key={field.id} className={styles.field}>
-                  <label>{field.label}</label>
-                  <input
-                    type={field.type}
-                    required={field.required}
-                    placeholder={field.placeholder}
-                    value={formData[field.id] || ''}
-                    onChange={e => setFormData({...formData, [field.id]: e.target.value})}
-                  />
+              <div className={styles.categoryGrid}>
+                {orgConfig.services.map(service => (
+                  <button
+                    key={service.id}
+                    type="button"
+                    className={styles.categoryCard}
+                    onClick={() => handleCategorySelect(service.id, service.label)}
+                  >
+                    <span className={styles.categoryIcon}>{service.icon}</span>
+                    <span className={styles.categoryCopy}>
+                      <strong>{service.label}</strong>
+                      <small>Quero atendimento</small>
+                    </span>
+                    <span className={styles.categoryArrow}>›</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className={styles.reassurance}>Sem orçamento automático. A Iluminar analisa seu pedido e fala com você.</div>
+            </div>
+          )}
+
+          {step === 'details' && (
+            <div className={styles.stepContent}>
+              <button type="button" className={styles.inlineBack} onClick={prevStep}>← Trocar serviço</button>
+              <div className={styles.selectedService}>
+                <span>{selectedService?.icon}</span>
+                <div>
+                  <small>Serviço escolhido</small>
+                  <strong>{selectedService?.label}</strong>
                 </div>
-              ))}
-
-              {error && <div className={styles.errorMessage} style={{ color: 'red', fontSize: '0.8rem', textAlign: 'center', marginBottom: '1rem' }}>{error}</div>}
-
-              <div className={styles.navButtons}>
-                <button type="button" className={styles.btnSecondary} onClick={prevStep}>Voltar</button>
-                <button type="submit" disabled={loading} className={styles.btnPrimary}>
-                  {loading ? 'Enviando...' : 'Enviar Solicitação'}
-                </button>
               </div>
-            </form>
-          </div>
-        )}
-      </div>
-    </div>
+
+              <h1 className={styles.title}>{detailsStep?.title}</h1>
+              <p className={styles.subtitle}>{detailsStep?.subtitle}</p>
+
+              <form className={styles.formGrid} onSubmit={handleDetailsContinue} noValidate>
+                {detailsStep?.fields.map(renderField)}
+
+                {detailError && <div className={styles.errorMessage}>{detailError}</div>}
+
+                <div className={styles.navButtons}>
+                  <button type="button" className={styles.btnSecondary} onClick={prevStep}>Voltar</button>
+                  <button type="submit" className={styles.btnPrimary}>Continuar</button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {step === 'contact' && (
+            <div className={styles.stepContent}>
+              <button type="button" className={styles.inlineBack} onClick={prevStep}>← Voltar aos detalhes</button>
+              <span className={styles.eyebrow}>Última etapa</span>
+              <h1 className={styles.title}>{contactStep?.title}</h1>
+              <p className={styles.subtitle}>{contactStep?.subtitle}</p>
+
+              <form className={styles.formGrid} onSubmit={handleSubmit}>
+                {contactStep?.fields.map(renderField)}
+
+                {error && <div className={styles.errorMessage}>{error}</div>}
+
+                <div className={styles.summaryStrip}>
+                  <div>
+                    <span>Seu pedido</span>
+                    <strong>{formData.problem || selectedService?.label}</strong>
+                  </div>
+                  <div>
+                    <span>Atendimento</span>
+                    <strong>{formData.urgency === 'Alta' ? 'O quanto antes' : formData.urgency === 'Baixa' ? 'Consulta' : 'Próximos dias'}</strong>
+                  </div>
+                </div>
+
+                <div className={styles.navButtons}>
+                  <button type="button" className={styles.btnSecondary} onClick={prevStep}>Voltar</button>
+                  <button type="submit" disabled={loading} className={styles.btnPrimary}>
+                    {loading ? 'Enviando...' : 'Solicitar atendimento'}
+                  </button>
+                </div>
+
+                <p className={styles.privacyNote}>Seus dados serão usados somente para a Iluminar retornar este atendimento.</p>
+              </form>
+            </div>
+          )}
+        </div>
+      </section>
+    </main>
   );
 }
