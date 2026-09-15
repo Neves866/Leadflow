@@ -8,6 +8,11 @@ export const iluminarConfig: OrganizationConfig = {
     primaryColor: '#1565d8',
     secondaryColor: '#f5c518',
   },
+  publicContact: {
+    whatsapp: '5545988429228',
+    websiteUrl: 'https://iluminarcvel.com.br',
+    websiteLabel: 'Voltar ao site da Iluminar',
+  },
   services: [
     { id: 'eletr', label: 'Elétrica', icon: '⚡' },
     { id: 'ar', label: 'Ar-condicionado', icon: '❄️' },
