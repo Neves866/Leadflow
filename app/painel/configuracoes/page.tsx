@@ -1,8 +1,18 @@
 'use client';
 
-import styles from "./configuracoes.module.css";
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import styles from './configuracoes.module.css';
+import { useEffect, useState } from 'react';
+import {
+  Bell,
+  Building2,
+  PlugZap,
+  Save,
+  Settings2,
+  ShieldCheck,
+  UserRound,
+  UsersRound,
+} from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
 
 const ROLE_LABELS: Record<string, string> = {
   owner: 'Proprietário',
@@ -149,110 +159,131 @@ export default function ConfiguracoesPage() {
     }
   };
 
+  if (loading) {
+    return <main className={styles.container}><div className={styles.stateMessage}>Carregando configurações...</div></main>;
+  }
+
+  if (error) {
+    return <main className={styles.container}><div className={styles.stateMessage}>Não foi possível carregar as configurações.</div></main>;
+  }
+
   return (
     <main className={styles.container}>
-      <header className={styles.header}>
-        <h1 className={styles.title}>Configurações</h1>
-        <p className={styles.subtitle}>Personalize a operação do seu LeadFlow.</p>
+      <header className={styles.pageHeader}>
+        <div>
+          <span className={styles.eyebrow}>WORKSPACE</span>
+          <h1>Configurações</h1>
+          <p>Identidade, equipe e preferências operacionais do seu LeadFlow.</p>
+        </div>
+        <span className={styles.workspaceBadge}><Settings2 size={15} /> Central de controle</span>
       </header>
+
+      <section className={styles.workspaceHero}>
+        <div className={styles.workspaceMark}><Building2 size={21} /></div>
+        <div className={styles.workspaceCopy}>
+          <span>WORKSPACE ATUAL</span>
+          <strong>{org?.name || 'LeadFlow'}</strong>
+          <small>/{org?.slug || 'workspace'}</small>
+        </div>
+        <div className={styles.workspaceStatus}>
+          <span className={org?.status === 'active' ? styles.statusDotActive : styles.statusDot} />
+          {org ? STATUS_LABELS[org.status] ?? org.status : '—'}
+        </div>
+      </section>
 
       <div className={styles.configGrid}>
         <section className={styles.card}>
-          <h2 className={styles.cardTitle}>🏢 Empresa</h2>
-          <div className={styles.field}>
-            <label>Nome da Empresa</label>
-            <input type="text" value={org?.name ?? ''} readOnly />
+          <div className={styles.cardHeader}>
+            <span className={styles.iconBox}><UserRound size={18} /></span>
+            <div><span>PERFIL</span><h2>Minha conta</h2></div>
           </div>
-          <div className={styles.field}>
-            <label>Slug</label>
-            <input type="text" value={org?.slug ?? ''} readOnly />
-          </div>
-          <div className={styles.field}>
-            <label>Status</label>
-            <input type="text" value={org ? STATUS_LABELS[org.status] ?? org.status : ''} readOnly />
-          </div>
-        </section>
 
-        <section className={styles.card}>
-          <h2 className={styles.cardTitle}>👥 Equipe</h2>
-          <div className={styles.userList}>
-            {team.length === 0 ? (
-              <p className={styles.toggleDesc}>Nenhum membro encontrado.</p>
-            ) : (
-              team.map(member => (
-                <div key={member.userId} className={styles.userItem}>
-                  <div className={styles.avatar}>{getInitials(member.name)}</div>
-                  <div>
-                    <p className={styles.toggleLabel}>{member.name}</p>
-                    <p className={styles.toggleDesc}>{member.role}</p>
-                  </div>
-                </div>
-              ))
-            )}
+          <div className={styles.profilePreview}>
+            <div className={styles.profileAvatar}>{getInitials(fullName || 'U')}</div>
+            <div><strong>{fullName || 'Seu nome'}</strong><span>Perfil pessoal no workspace</span></div>
           </div>
-        </section>
 
-        <section className={styles.card}>
-          <h2 className={styles.cardTitle}>👤 Meu Perfil</h2>
           <div className={styles.field}>
             <label>Nome</label>
-            <input
-              type="text"
-              value={fullName}
-              onChange={e => setFullName(e.target.value)}
-              placeholder="Seu nome"
-            />
+            <input type="text" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Seu nome" />
           </div>
           <div className={styles.field}>
             <label>Telefone</label>
-            <input
-              type="text"
-              value={phone}
-              onChange={e => setPhone(e.target.value)}
-              placeholder="Seu telefone"
-            />
+            <input type="text" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Seu telefone" />
           </div>
+
           <div className={styles.saveRow}>
             <button className={styles.saveButton} onClick={handleSaveProfile} disabled={saving}>
-              {saving ? 'Salvando...' : 'Salvar'}
+              <Save size={15} />
+              {saving ? 'Salvando...' : 'Salvar perfil'}
             </button>
             {saveFeedback && (
-              <span className={saveFeedback.ok ? styles.saveFeedbackOk : styles.saveFeedbackError}>
-                {saveFeedback.text}
-              </span>
+              <span className={saveFeedback.ok ? styles.saveFeedbackOk : styles.saveFeedbackError}>{saveFeedback.text}</span>
             )}
           </div>
         </section>
 
         <section className={styles.card}>
-          <h2 className={styles.cardTitle}>🔔 Notificações</h2>
-          <div className={styles.toggleRow}>
-            <div className={styles.toggleInfo}>
-              <span className={styles.toggleLabel}>Em breve</span>
-              <span className={styles.toggleDesc}>As preferências de notificações serão configuradas aqui.</span>
-            </div>
+          <div className={styles.cardHeader}>
+            <span className={styles.iconBox}><Building2 size={18} /></span>
+            <div><span>ORGANIZAÇÃO</span><h2>Empresa</h2></div>
+          </div>
+          <div className={styles.readOnlyGrid}>
+            <div><span>Nome</span><strong>{org?.name || '—'}</strong></div>
+            <div><span>Slug</span><strong>{org?.slug || '—'}</strong></div>
+            <div><span>Status</span><strong>{org ? STATUS_LABELS[org.status] ?? org.status : '—'}</strong></div>
+          </div>
+          <div className={styles.infoNote}><ShieldCheck size={15} /> Dados estruturais da organização são protegidos pelo workspace.</div>
+        </section>
+
+        <section className={`${styles.card} ${styles.teamCard}`}>
+          <div className={styles.cardHeader}>
+            <span className={styles.iconBox}><UsersRound size={18} /></span>
+            <div><span>ACESSO</span><h2>Equipe</h2></div>
+            <span className={styles.memberCount}>{team.length}</span>
+          </div>
+
+          <div className={styles.userList}>
+            {team.length === 0 ? (
+              <div className={styles.emptyInline}>Nenhum membro encontrado.</div>
+            ) : team.map(member => (
+              <div key={member.userId} className={styles.userItem}>
+                <div className={styles.avatar}>{getInitials(member.name)}</div>
+                <div className={styles.userCopy}>
+                  <strong>{member.name}</strong>
+                  <span>{member.role}</span>
+                </div>
+                <span className={styles.accessBadge}>Ativo</span>
+              </div>
+            ))}
           </div>
         </section>
 
         <section className={styles.card}>
-          <h2 className={styles.cardTitle}>🔌 Integrações</h2>
-          <div className={styles.toggleRow}>
-            <div className={styles.toggleInfo}>
-              <span className={styles.toggleLabel}>WhatsApp</span>
-            </div>
-            <span className={styles.badgeSoon}>Em breve</span>
+          <div className={styles.cardHeader}>
+            <span className={styles.iconBox}><PlugZap size={18} /></span>
+            <div><span>ECOSSISTEMA</span><h2>Integrações</h2></div>
           </div>
-          <div className={styles.toggleRow}>
-            <div className={styles.toggleInfo}>
-              <span className={styles.toggleLabel}>Google</span>
-            </div>
-            <span className={styles.badgeSoon}>Em breve</span>
+          <div className={styles.integrationList}>
+            {['WhatsApp', 'Google', 'Meta'].map(item => (
+              <div key={item} className={styles.integrationItem}>
+                <div><span className={styles.integrationDot} /><strong>{item}</strong></div>
+                <span className={styles.badgeSoon}>Em breve</span>
+              </div>
+            ))}
           </div>
-          <div className={styles.toggleRow}>
-            <div className={styles.toggleInfo}>
-              <span className={styles.toggleLabel}>Meta</span>
-            </div>
-            <span className={styles.badgeSoon}>Em breve</span>
+        </section>
+
+        <section className={styles.card}>
+          <div className={styles.cardHeader}>
+            <span className={styles.iconBox}><Bell size={18} /></span>
+            <div><span>COMUNICAÇÃO</span><h2>Notificações</h2></div>
+          </div>
+          <div className={styles.comingSoonPanel}>
+            <Bell size={20} />
+            <strong>Central de alertas</strong>
+            <span>Preferências de notificações, lembretes e eventos comerciais serão configuradas aqui.</span>
+            <small>Em breve</small>
           </div>
         </section>
       </div>
