@@ -101,6 +101,8 @@ export async function POST(
     const protocol = `LF-${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
 
     // 6. Lead Creation
+    const leadSubject = answers.problem || answers.serviceType || answers.category || 'Novo atendimento';
+
     const { data: lead, error: leadError } = await supabase
       .from('leads')
       .insert({
@@ -110,10 +112,10 @@ export async function POST(
         form_id: form.id,
         pipeline_id: pipeline.id,
         stage_id: stage.id,
-        title: `${name} - ${answers.serviceType || 'Lead'}`,
+        title: `${name} - ${leadSubject}`,
         source: 'Public Form',
         urgency: answers.urgency || 'Média',
-        protocol: protocol,
+        protocol,
         notes: answers.notes || '',
       })
       .select()
@@ -128,7 +130,7 @@ export async function POST(
         organization_id: orgId,
         form_id: form.id,
         lead_id: lead.id,
-        answers: answers,
+        answers,
       });
 
     if (subError) throw subError;
@@ -147,10 +149,9 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      protocol: protocol,
+      protocol,
       leadId: lead.id,
     });
-
   } catch (error: any) {
     console.error('Submission Error:', error);
     return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
