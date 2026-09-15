@@ -100,7 +100,145 @@
     overflow-x: auto;
   }
 
-  .table {
-    min-width: 700px;
+.table {
+  min-width: 700px;
   }
+}
+
+.viewToggle {
+  display: flex;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.viewToggle button {
+  background: white;
+  border: none;
+  padding: 12px 18px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+}
+
+.viewToggle button + button {
+  border-left: 1px solid #d1d5db;
+}
+
+.viewToggle button.active {
+  background: #111827;
+  color: white;
+}
+
+.kanbanFeedback {
+  margin-bottom: 16px;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.kanbanFeedback.feedbackOk {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.kanbanFeedback.feedbackError {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.kanban {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  overflow-x: auto;
+  padding-bottom: 16px;
+}
+
+.kanbanColumn {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  min-width: 260px;
+  width: 260px;
+  flex-shrink: 0;
+  padding: 12px;
+}
+
+.kanbanColumnOver {
+  border-color: #6366f1;
+  background: #eef2ff;
+}
+
+.kanbanHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 4px 12px;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 12px;
+}
+
+.stageName {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.stageMeta {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.kanbanCards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 60px;
+}
+
+.leadCard {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.leadCard:hover {
+  border-color: #6366f1;
+}
+
+.leadCardDragging {
+  opacity: 0.5;
+  border-style: dashed;
+}
+
+.leadCardName {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 6px;
+}
+
+.leadCardInfo {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 0 0 2px;
+}
+
+.leadCardValue {
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+  margin: 6px 0 0;
+}
+
+.emptyColumn {
+  font-size: 12px;
+  color: #9ca3af;
+  text-align: center;
+  margin: 8px 0;
 }
