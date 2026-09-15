@@ -1,9 +1,19 @@
 'use client';
 
-import styles from "./novo.module.css";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import styles from './novo.module.css';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import {
+  ArrowLeft,
+  BriefcaseBusiness,
+  CircleDollarSign,
+  Mail,
+  Phone,
+  Save,
+  Sparkles,
+  UserRound,
+} from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
 
 const SOURCE_OPTIONS = ['WhatsApp', 'Ligação', 'Indicação', 'Instagram', 'Facebook', 'Google', 'Site', 'Outro'];
 const URGENCY_OPTIONS = ['Baixa', 'Média', 'Alta'];
@@ -16,6 +26,12 @@ interface ServiceOption {
 function generateProtocol(): string {
   const date = new Date();
   return `LF-${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
+}
+
+function formatPreviewCurrency(value: string) {
+  const parsed = Number(value.replace(',', '.'));
+  if (!value.trim() || Number.isNaN(parsed)) return 'A definir';
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(parsed);
 }
 
 export default function NovoLeadPage() {
@@ -51,7 +67,6 @@ export default function NovoLeadPage() {
           .order('sort_order', { ascending: true });
 
         if (error) throw error;
-
         setServices((data ?? []) as ServiceOption[]);
       } catch (err) {
         console.error('Error loading services:', err);
@@ -84,19 +99,16 @@ export default function NovoLeadPage() {
     if (saving) return;
 
     setFormError('');
-
     if (!validate()) return;
 
     setSaving(true);
     try {
       const supabase = createClient();
 
-      // 1. Authenticated user
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError) throw userError;
       if (!user) throw new Error('Usuário não autenticado');
 
-      // 2. Organization from membership (never from the form)
       const { data: membershipData, error: membershipError } = await supabase
         .from('organization_members')
         .select('organization_id')
@@ -108,7 +120,6 @@ export default function NovoLeadPage() {
       const organizationId = membershipData?.[0]?.organization_id;
       if (!organizationId) throw new Error('Organização não encontrada para o usuário');
 
-      // 3. Default pipeline + initial stage
       const { data: pipeline, error: pipelineError } = await supabase
         .from('pipelines')
         .select('id')
@@ -129,7 +140,6 @@ export default function NovoLeadPage() {
       if (stageError) throw stageError;
       if (!stage) throw new Error('Estágio inicial "novo" não encontrado');
 
-      // 4. Contact lookup/creation by normalized phone
       const normalizedPhone = phone.replace(/\D/g, '');
 
       const { data: existingContact, error: contactLookupError } = await supabase
@@ -161,7 +171,6 @@ export default function NovoLeadPage() {
         contactId = newContact.id;
       }
 
-      // 5. Lead creation
       const { data: lead, error: leadError } = await supabase
         .from('leads')
         .insert({
@@ -184,7 +193,6 @@ export default function NovoLeadPage() {
 
       if (leadError) throw leadError;
 
-      // 6. Activity log
       const { error: activityError } = await supabase
         .from('activities')
         .insert({
@@ -196,7 +204,6 @@ export default function NovoLeadPage() {
         });
 
       if (activityError) throw activityError;
-
       router.push(`/painel/leads/${lead.id}`);
     } catch (err) {
       console.error('Error creating lead:', err);
@@ -206,102 +213,155 @@ export default function NovoLeadPage() {
     }
   };
 
+  const selectedService = useMemo(
+    () => services.find(service => service.id === serviceId)?.name || 'Sem serviço definido',
+    [services, serviceId]
+  );
+
   return (
     <main className={styles.container}>
-      <header className={styles.header}>
-        <div>
-          <h1 className={styles.title}>Novo Lead</h1>
-          <p className={styles.subtitle}>Cadastre uma nova oportunidade manualmente.</p>
-        </div>
-        <button type="button" className={styles.cancelButton} onClick={() => router.push('/painel/leads')}>
-          Cancelar
+      <div className={styles.topBar}>
+        <button type="button" className={styles.backButton} onClick={() => router.push('/painel/leads')}>
+          <ArrowLeft size={16} />
+          Leads
         </button>
+      </div>
+
+      <header className={styles.pageHeader}>
+        <div>
+          <span className={styles.eyebrow}>NOVA OPORTUNIDADE</span>
+          <h1>Novo lead</h1>
+          <p>Cadastre uma oportunidade manualmente e coloque ela direto no pipeline.</p>
+        </div>
       </header>
 
       {loading ? (
-        <div className={styles.message}>Carregando...</div>
+        <div className={styles.message}>Carregando dados do workspace...</div>
       ) : loadError ? (
         <div className={styles.message}>Falha ao carregar os dados. Tente novamente mais tarde.</div>
       ) : (
-        <form className={styles.card} onSubmit={handleSubmit} noValidate>
-          {formError && <p className={styles.formError}>{formError}</p>}
+        <div className={styles.workspace}>
+          <form className={styles.formColumn} onSubmit={handleSubmit} noValidate>
+            {formError && <div className={styles.formError}>{formError}</div>}
 
-          <h2 className={styles.sectionTitle}>Contato</h2>
-          <div className={styles.formGrid}>
-            <div className={styles.field}>
-              <label htmlFor="name">Nome *</label>
-              <input id="name" type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Nome do contato" />
-              {validationErrors.name && <span className={styles.fieldError}>{validationErrors.name}</span>}
-            </div>
-            <div className={styles.field}>
-              <label htmlFor="phone">WhatsApp/Telefone *</label>
-              <input id="phone" type="text" value={phone} onChange={e => setPhone(e.target.value)} placeholder="(00) 00000-0000" />
-              {validationErrors.phone && <span className={styles.fieldError}>{validationErrors.phone}</span>}
-            </div>
-            <div className={styles.field}>
-              <label htmlFor="email">E-mail</label>
-              <input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="contato@email.com" />
-            </div>
-          </div>
+            <section className={styles.panel}>
+              <div className={styles.sectionHeader}>
+                <span className={styles.sectionIcon}><UserRound size={18} /></span>
+                <div><span>CONTATO</span><h2>Quem é esta oportunidade?</h2></div>
+              </div>
 
-          <h2 className={styles.sectionTitle}>Oportunidade</h2>
-          <div className={styles.formGrid}>
-            <div className={styles.field}>
-              <label htmlFor="service">Serviço</label>
-              <select id="service" value={serviceId} onChange={e => setServiceId(e.target.value)}>
-                <option value="">Nenhum (opcional)</option>
-                {services.map(service => (
-                  <option key={service.id} value={service.id}>{service.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className={styles.field}>
-              <label htmlFor="source">Origem *</label>
-              <select id="source" value={source} onChange={e => setSource(e.target.value)}>
-                <option value="">Selecione...</option>
-                {SOURCE_OPTIONS.map(option => (
-                  <option key={option} value={option}>{option}</option>
-                ))}
-              </select>
-              {validationErrors.source && <span className={styles.fieldError}>{validationErrors.source}</span>}
-            </div>
-            <div className={styles.field}>
-              <label htmlFor="urgency">Urgência</label>
-              <select id="urgency" value={urgency} onChange={e => setUrgency(e.target.value)}>
-                {URGENCY_OPTIONS.map(option => (
-                  <option key={option} value={option}>{option}</option>
-                ))}
-              </select>
-            </div>
-            <div className={styles.field}>
-              <label htmlFor="potentialValue">Valor Potencial</label>
-              <input
-                id="potentialValue"
-                type="text"
-                inputMode="decimal"
-                value={potentialValue}
-                onChange={e => setPotentialValue(e.target.value)}
-                placeholder="Ex: 1500,00 (opcional)"
-              />
-              {validationErrors.potentialValue && <span className={styles.fieldError}>{validationErrors.potentialValue}</span>}
-            </div>
-            <div className={`${styles.field} ${styles.fieldFull}`}>
-              <label htmlFor="notes">Observações</label>
-              <textarea
-                id="notes"
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
-                placeholder="Detalhes adicionais sobre a oportunidade"
-              />
-            </div>
-          </div>
+              <div className={styles.formGrid}>
+                <div className={styles.field}>
+                  <label htmlFor="name">Nome *</label>
+                  <input id="name" type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Nome do contato" />
+                  {validationErrors.name && <span className={styles.fieldError}>{validationErrors.name}</span>}
+                </div>
+                <div className={styles.field}>
+                  <label htmlFor="phone">WhatsApp/Telefone *</label>
+                  <input id="phone" type="text" value={phone} onChange={e => setPhone(e.target.value)} placeholder="(00) 00000-0000" />
+                  {validationErrors.phone && <span className={styles.fieldError}>{validationErrors.phone}</span>}
+                </div>
+                <div className={`${styles.field} ${styles.fieldFull}`}>
+                  <label htmlFor="email">E-mail</label>
+                  <input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="contato@email.com" />
+                </div>
+              </div>
+            </section>
 
-          <div className={styles.footerActions}>
-            <button type="submit" className={styles.button} disabled={saving}>
-              {saving ? 'Salvando...' : 'Cadastrar Lead'}
-            </button>
-          </div>
-        </form>
+            <section className={styles.panel}>
+              <div className={styles.sectionHeader}>
+                <span className={styles.sectionIcon}><BriefcaseBusiness size={18} /></span>
+                <div><span>OPORTUNIDADE</span><h2>Contexto comercial</h2></div>
+              </div>
+
+              <div className={styles.formGrid}>
+                <div className={styles.field}>
+                  <label htmlFor="service">Serviço</label>
+                  <select id="service" value={serviceId} onChange={e => setServiceId(e.target.value)}>
+                    <option value="">Nenhum (opcional)</option>
+                    {services.map(service => <option key={service.id} value={service.id}>{service.name}</option>)}
+                  </select>
+                </div>
+                <div className={styles.field}>
+                  <label htmlFor="source">Origem *</label>
+                  <select id="source" value={source} onChange={e => setSource(e.target.value)}>
+                    <option value="">Selecione...</option>
+                    {SOURCE_OPTIONS.map(option => <option key={option} value={option}>{option}</option>)}
+                  </select>
+                  {validationErrors.source && <span className={styles.fieldError}>{validationErrors.source}</span>}
+                </div>
+                <div className={styles.field}>
+                  <label htmlFor="urgency">Urgência</label>
+                  <select id="urgency" value={urgency} onChange={e => setUrgency(e.target.value)}>
+                    {URGENCY_OPTIONS.map(option => <option key={option} value={option}>{option}</option>)}
+                  </select>
+                </div>
+                <div className={styles.field}>
+                  <label htmlFor="potentialValue">Valor potencial</label>
+                  <input
+                    id="potentialValue"
+                    type="text"
+                    inputMode="decimal"
+                    value={potentialValue}
+                    onChange={e => setPotentialValue(e.target.value)}
+                    placeholder="Ex: 1500,00"
+                  />
+                  {validationErrors.potentialValue && <span className={styles.fieldError}>{validationErrors.potentialValue}</span>}
+                </div>
+                <div className={`${styles.field} ${styles.fieldFull}`}>
+                  <label htmlFor="notes">Observações</label>
+                  <textarea
+                    id="notes"
+                    value={notes}
+                    onChange={e => setNotes(e.target.value)}
+                    placeholder="Objeções, contexto, próximos passos ou informações importantes..."
+                  />
+                </div>
+              </div>
+            </section>
+
+            <div className={styles.footerActions}>
+              <button type="button" className={styles.cancelButton} onClick={() => router.push('/painel/leads')}>Cancelar</button>
+              <button type="submit" className={styles.submitButton} disabled={saving}>
+                <Save size={16} />
+                {saving ? 'Salvando...' : 'Cadastrar lead'}
+              </button>
+            </div>
+          </form>
+
+          <aside className={styles.previewColumn}>
+            <section className={styles.previewCard}>
+              <div className={styles.previewGlow} />
+              <div className={styles.previewHeader}>
+                <div><span>PREVIEW</span><strong>Opportunity card</strong></div>
+                <Sparkles size={17} />
+              </div>
+
+              <div className={styles.previewIdentity}>
+                <div className={styles.previewAvatar}>{(name.trim()[0] || 'L').toUpperCase()}</div>
+                <div><strong>{name.trim() || 'Novo lead'}</strong><span>{selectedService}</span></div>
+              </div>
+
+              <div className={styles.previewMetrics}>
+                <div><small>Valor potencial</small><strong>{formatPreviewCurrency(potentialValue)}</strong></div>
+                <div><small>Urgência</small><strong>{urgency}</strong></div>
+              </div>
+
+              <div className={styles.previewRows}>
+                <div><Phone size={14} /><span>{phone || 'Telefone não informado'}</span></div>
+                <div><Mail size={14} /><span>{email || 'E-mail não informado'}</span></div>
+                <div><BriefcaseBusiness size={14} /><span>{source || 'Origem não definida'}</span></div>
+                <div><CircleDollarSign size={14} /><span>Entrará na etapa Novo</span></div>
+              </div>
+            </section>
+
+            <div className={styles.tipCard}>
+              <span>LEADFLOW TIP</span>
+              <strong>Quanto mais contexto, melhor o acompanhamento.</strong>
+              <p>Use as observações para registrar detalhes que ajudem na próxima ação comercial.</p>
+            </div>
+          </aside>
+        </div>
       )}
     </main>
   );
