@@ -1,47 +1,80 @@
 'use client';
 
-import styles from "./sucesso.module.css";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
+import styles from './sucesso.module.css';
 
 export default function SucessoPage() {
-  const router = useRouter();
-  const [protocol, setProtocol] = useState<string>('');
-  const [lastLeadId, setLastLeadId] = useState<string | null>(null);
+  const [protocol, setProtocol] = useState('');
+  const [orgName, setOrgName] = useState('Nossa equipe');
+  const [whatsapp, setWhatsapp] = useState('');
+  const [returnUrl, setReturnUrl] = useState('');
+  const [returnLabel, setReturnLabel] = useState('Voltar ao site');
 
   useEffect(() => {
-    const savedProtocol = localStorage.getItem('leadflow_last_protocol') || '#LF-000000';
-    const leadId = localStorage.getItem('leadflow_last_lead_id');
-    setProtocol(savedProtocol);
-    setLastLeadId(leadId);
+    setProtocol(localStorage.getItem('leadflow_last_protocol') || '');
+    setOrgName(localStorage.getItem('leadflow_last_org_name') || 'Nossa equipe');
+    setWhatsapp(localStorage.getItem('leadflow_last_support_whatsapp') || '');
+    setReturnUrl(localStorage.getItem('leadflow_last_return_url') || '');
+    setReturnLabel(localStorage.getItem('leadflow_last_return_label') || 'Voltar ao site');
+    localStorage.removeItem('leadflow_last_lead_id');
   }, []);
 
+  const handleWhatsApp = () => {
+    if (!whatsapp) return;
+
+    const protocolText = protocol ? ` Meu protocolo é ${protocol}.` : '';
+    const message = encodeURIComponent(`Olá! Acabei de solicitar um atendimento pelo formulário.${protocolText}`);
+    window.open(`https://wa.me/${whatsapp}?text=${message}`, '_blank', 'noopener,noreferrer');
+  };
+
   return (
-    <div className={styles.page}>
-      <div className={styles.container}>
-        <div className={styles.icon}>✅</div>
-        <h1 className={styles.title}>Solicitação Recebida!</h1>
+    <main className={styles.page}>
+      <section className={styles.container}>
+        <div className={styles.successMark} aria-hidden="true">✓</div>
+        <span className={styles.eyebrow}>Solicitação enviada</span>
+        <h1 className={styles.title}>Pronto! Recebemos seu pedido.</h1>
         <p className={styles.subtitle}>
-          Recebemos seus dados com sucesso. Um de nossos especialistas entrará em contato em breve.
+          {orgName} já recebeu as informações. Agora é só aguardar o retorno pelo WhatsApp.
         </p>
 
-        <div className={styles.protocol}>
-          <span className={styles.label}>Protocolo:</span>
-          <span className={styles.value}>{protocol}</span>
+        {protocol && (
+          <div className={styles.protocol}>
+            <span className={styles.label}>Protocolo do atendimento</span>
+            <strong className={styles.value}>{protocol}</strong>
+          </div>
+        )}
+
+        <div className={styles.nextSteps}>
+          <div className={styles.nextStepItem}>
+            <span>1</span>
+            <p>Seu pedido foi registrado com sucesso.</p>
+          </div>
+          <div className={styles.nextStepItem}>
+            <span>2</span>
+            <p>A equipe analisa as informações que você enviou.</p>
+          </div>
+          <div className={styles.nextStepItem}>
+            <span>3</span>
+            <p>Você recebe o retorno para combinar o atendimento.</p>
+          </div>
         </div>
 
         <div className={styles.actions}>
-          <button
-            className={styles.btnPrimary}
-            onClick={() => router.push(lastLeadId ? `/painel/leads/${lastLeadId}` : '/painel/leads')}
-          >
-            Ver lead no painel
-          </button>
-          <button className={styles.btnSecondary} onClick={() => router.push('/')}>
-            Voltar ao Início
-          </button>
+          {whatsapp && (
+            <button type="button" className={styles.btnPrimary} onClick={handleWhatsApp}>
+              Falar pelo WhatsApp
+            </button>
+          )}
+
+          {returnUrl && (
+            <a className={styles.btnSecondary} href={returnUrl}>
+              {returnLabel}
+            </a>
+          )}
         </div>
-      </div>
-    </div>
+
+        <p className={styles.footerNote}>Você não precisa preencher o formulário novamente.</p>
+      </section>
+    </main>
   );
 }
