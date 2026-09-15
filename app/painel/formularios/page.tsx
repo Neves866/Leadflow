@@ -1,9 +1,17 @@
 'use client';
 
-import styles from "./formularios.module.css";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import styles from './formularios.module.css';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import {
+  ArrowUpRight,
+  FileText,
+  Link2,
+  MessageSquareText,
+  Plus,
+  Radio,
+} from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
 
 interface FormCard {
   id: string;
@@ -39,9 +47,7 @@ export default function FormulariosPage() {
 
         const counts: Record<string, number> = {};
         for (const submission of submissionsResult.data ?? []) {
-          if (submission.form_id) {
-            counts[submission.form_id] = (counts[submission.form_id] || 0) + 1;
-          }
+          if (submission.form_id) counts[submission.form_id] = (counts[submission.form_id] || 0) + 1;
         }
 
         setResponseCounts(counts);
@@ -57,47 +63,89 @@ export default function FormulariosPage() {
     fetchData();
   }, []);
 
+  const summary = useMemo(() => ({
+    total: forms.length,
+    active: forms.filter(form => form.active).length,
+    responses: Object.values(responseCounts).reduce((sum, count) => sum + count, 0),
+  }), [forms, responseCounts]);
+
   return (
     <main className={styles.container}>
-      <header className={styles.header}>
+      <header className={styles.pageHeader}>
         <div>
-          <h1 className={styles.title}>Formulários</h1>
-          <p className={styles.subtitle}>Crie e gerencie seus formulários de captação.</p>
+          <span className={styles.eyebrow}>CAPTAÇÃO</span>
+          <h1>Formulários</h1>
+          <p>Seus pontos de entrada para novas oportunidades no LeadFlow.</p>
         </div>
-        <button className={styles.button} disabled title="Em breve">+ Novo Formulário</button>
+        <button className={styles.newButton} disabled title="Em breve">
+          <Plus size={16} />
+          Novo formulário
+        </button>
       </header>
 
+      <section className={styles.summaryStrip}>
+        <div className={styles.summaryItem}>
+          <span className={styles.summaryIcon}><FileText size={17} /></span>
+          <div><small>Formulários</small><strong>{summary.total}</strong></div>
+        </div>
+        <div className={styles.summaryItem}>
+          <span className={styles.summaryIcon}><Radio size={17} /></span>
+          <div><small>Ativos</small><strong>{summary.active}</strong></div>
+        </div>
+        <div className={styles.summaryItem}>
+          <span className={styles.summaryIcon}><MessageSquareText size={17} /></span>
+          <div><small>Respostas recebidas</small><strong>{summary.responses}</strong></div>
+        </div>
+      </section>
+
       {loading ? (
-        <div className={styles.message}>Carregando...</div>
+        <div className={styles.message}>Carregando formulários...</div>
       ) : error ? (
         <div className={styles.message}>Falha ao carregar os formulários. Tente novamente mais tarde.</div>
       ) : forms.length === 0 ? (
         <div className={styles.message}>Nenhum formulário cadastrado ainda.</div>
       ) : (
         <div className={styles.grid}>
-          {forms.map((form) => (
-            <div key={form.id} className={styles.card}>
-              <div className={styles.cardHeader}>
-                <h3 className={styles.formName}>{form.name}</h3>
-                <span className={`${styles.badge} ${form.active ? styles.active : styles.paused}`}>
+          {forms.map(form => (
+            <article key={form.id} className={styles.card}>
+              <div className={styles.cardAccent} />
+              <div className={styles.cardTop}>
+                <span className={styles.formIcon}><FileText size={18} /></span>
+                <span className={`${styles.statusBadge} ${form.active ? styles.active : styles.paused}`}>
+                  <span />
                   {form.active ? 'Ativo' : 'Pausado'}
                 </span>
               </div>
-              <div className={styles.cardBody}>
-                <div className={styles.stat}>
-                  <p className={styles.label}>Respostas</p>
-                  <strong className={styles.value}>{responseCounts[form.id] || 0}</strong>
+
+              <div className={styles.cardTitleBlock}>
+                <h2>{form.name}</h2>
+                <span>Criado em {new Date(form.created_at).toLocaleDateString('pt-BR')}</span>
+              </div>
+
+              <div className={styles.formMetrics}>
+                <div>
+                  <span>Respostas</span>
+                  <strong>{responseCounts[form.id] || 0}</strong>
                 </div>
-                <div className={styles.stat}>
-                  <p className={styles.label}>Link</p>
-                  <strong className={styles.value}>/f/{form.slug}</strong>
+                <div>
+                  <span>Status</span>
+                  <strong>{form.active ? 'Captando' : 'Pausado'}</strong>
                 </div>
               </div>
+
+              <div className={styles.linkBox}>
+                <Link2 size={14} />
+                <code>/f/{form.slug}</code>
+              </div>
+
               <div className={styles.cardFooter}>
-                <button className={styles.btnEdit} disabled title="Em breve">Editar</button>
-                <button className={styles.btnView} onClick={() => router.push(`/f/${form.slug}`)}>Visualizar</button>
+                <button className={styles.secondaryButton} disabled title="Em breve">Editar</button>
+                <button className={styles.primaryButton} onClick={() => router.push(`/f/${form.slug}`)}>
+                  Visualizar
+                  <ArrowUpRight size={15} />
+                </button>
               </div>
-            </div>
+            </article>
           ))}
         </div>
       )}
