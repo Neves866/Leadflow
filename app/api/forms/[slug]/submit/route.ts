@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
+function safeText(value: unknown, maxLength = 500): string | null {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim();
+  if (!normalized) return null;
+  return normalized.slice(0, maxLength);
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { slug: string } }
@@ -8,15 +15,21 @@ export async function POST(
   try {
     const { slug } = params;
     const body = await request.json();
-    const { serviceId, answers } = body;
+
+    const serviceId = typeof body?.serviceId === 'string' ? body.serviceId.trim() : '';
+    const answers = body?.answers && typeof body.answers === 'object'
+      ? body.answers as Record<string, unknown>
+      : null;
+    const metadataInput = body?.metadata && typeof body.metadata === 'object'
+      ? body.metadata as Record<string, unknown>
+      : {};
 
     if (!serviceId || !answers) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+      return NextResponse.json({ error: 'Dados obrigatórios ausentes.' }, { status: 400 });
     }
 
     const supabase = createAdminClient();
 
-    // 1. Find the form and organization
     const { data: form, error: formError } = await supabase
       .from('forms')
       .select('id, organization_id, active')
@@ -24,18 +37,17 @@ export async function POST(
       .single();
 
     if (formError || !form || !form.active) {
-      return NextResponse.json({ error: 'Form not found or inactive' }, { status: 404 });
+      return NextResponse.json({ error: 'Formulário não encontrado ou inativo.' }, { status: 404 });
     }
 
     const orgId = form.organization_id;
-
-    // 2. Contact Management
-    const name = answers.name;
-    const rawPhone = answers.whatsapp || '';
+    const name = safeText(answers.name, 120) || '';
+    const rawPhone = typeof answers.whatsapp === 'string' ? answers.whatsapp : '';
     const phone = rawPhone.replace(/\D/g, '');
+    const email = safeText(answers.email, 160);
 
-    if (!name || !phone) {
-      return NextResponse.json({ error: 'Name and WhatsApp are required' }, { status: 400 });
+    if (name.length < 2 || phone.length < 10 || phone.length > 13) {
+      return NextResponse.json({ error: 'Informe nome e WhatsApp válidos.' }, { status: 400 });
     }
 
     let { data: contact, error: contactError } = await supabase
@@ -43,24 +55,26 @@ export async function POST(
       .select('id')
       .eq('organization_id', orgId)
       .eq('phone', phone)
-      .single();
+      .maybeSingle();
 
-    if (contactError || !contact) {
+    if (contactError) throw contactError;
+
+    if (!contact) {
       const { data: newContact, error: createContactError } = await supabase
         .from('contacts')
         .insert({
           organization_id: orgId,
           name,
           phone,
+          email,
         })
-        .select()
+        .select('id')
         .single();
 
       if (createContactError) throw createContactError;
       contact = newContact;
     }
 
-    // 3. Service Resolution (serviceId is the KEY, e.g., 'ar')
     const { data: service, error: serviceError } = await supabase
       .from('services')
       .select('id')
@@ -70,10 +84,9 @@ export async function POST(
       .single();
 
     if (serviceError || !service) {
-      return NextResponse.json({ error: 'Service not found or inactive' }, { status: 404 });
+      return NextResponse.json({ error: 'Serviço não encontrado ou inativo.' }, { status: 404 });
     }
 
-    // 4. Pipeline and Stage
     const { data: pipeline, error: pipeError } = await supabase
       .from('pipelines')
       .select('id')
@@ -82,7 +95,7 @@ export async function POST(
       .single();
 
     if (pipeError || !pipeline) {
-      return NextResponse.json({ error: 'Default pipeline not found' }, { status: 500 });
+      return NextResponse.json({ error: 'Pipeline padrão não encontrado.' }, { status: 500 });
     }
 
     const { data: stage, error: stageError } = await supabase
@@ -93,15 +106,25 @@ export async function POST(
       .single();
 
     if (stageError || !stage) {
-      return NextResponse.json({ error: 'Initial stage "novo" not found' }, { status: 500 });
+      return NextResponse.json({ error: 'Etapa inicial não encontrada.' }, { status: 500 });
     }
 
-    // 5. Protocol Generation
     const date = new Date();
     const protocol = `LF-${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    // 6. Lead Creation
-    const leadSubject = answers.problem || answers.serviceType || answers.category || 'Novo atendimento';
+    const leadSubject = (
+      safeText(answers.problem, 120) ||
+      safeText(answers.serviceType, 120) ||
+      safeText(answers.category, 120) ||
+      'Novo atendimento'
+    );
+
+    const urgencyRaw = safeText(answers.urgency, 20);
+    const urgency = urgencyRaw && ['Baixa', 'Média', 'Alta'].includes(urgencyRaw)
+      ? urgencyRaw
+      : 'Média';
+
+    const notes = safeText(answers.notes, 2000) || '';
 
     const { data: lead, error: leadError } = await supabase
       .from('leads')
@@ -112,18 +135,30 @@ export async function POST(
         form_id: form.id,
         pipeline_id: pipeline.id,
         stage_id: stage.id,
-        title: `${name} - ${leadSubject}`,
+        title: `${name} - ${leadSubject}`.slice(0, 240),
         source: 'Public Form',
-        urgency: answers.urgency || 'Média',
+        urgency,
         protocol,
-        notes: answers.notes || '',
+        notes,
       })
-      .select()
+      .select('id')
       .single();
 
     if (leadError) throw leadError;
 
-    // 7. Submission Recording
+    const submissionMetadata = Object.fromEntries(
+      Object.entries({
+        landing_page: safeText(metadataInput.landingPage),
+        referrer: safeText(metadataInput.referrer),
+        utm_source: safeText(metadataInput.utmSource, 160),
+        utm_medium: safeText(metadataInput.utmMedium, 160),
+        utm_campaign: safeText(metadataInput.utmCampaign, 240),
+        utm_content: safeText(metadataInput.utmContent, 240),
+        utm_term: safeText(metadataInput.utmTerm, 240),
+        user_agent: safeText(request.headers.get('user-agent')),
+      }).filter(([, value]) => value !== null)
+    );
+
     const { error: subError } = await supabase
       .from('form_submissions')
       .insert({
@@ -131,11 +166,11 @@ export async function POST(
         form_id: form.id,
         lead_id: lead.id,
         answers,
+        metadata: submissionMetadata,
       });
 
     if (subError) throw subError;
 
-    // 8. Activity Log
     const { error: actError } = await supabase
       .from('activities')
       .insert({
@@ -150,10 +185,12 @@ export async function POST(
     return NextResponse.json({
       success: true,
       protocol,
-      leadId: lead.id,
     });
   } catch (error: any) {
     console.error('Submission Error:', error);
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Não foi possível registrar sua solicitação agora. Tente novamente.' },
+      { status: 500 }
+    );
   }
 }
