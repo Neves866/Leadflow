@@ -58,6 +58,11 @@ export default function ConfiguracoesPage() {
   const [phone, setPhone] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState<{ ok: boolean; text: string } | null>(null);
+  const [integrations, setIntegrations] = useState<any[]>([]);
+  const [loadingIntegrations, setLoadingIntegrations] = useState(true);
+  const [connectingMeta, setConnectingMeta] = useState(false);
+  const [selectedPages, setSelectedPages] = useState<any[]>([]);
+  const [showPageSelector, setShowPageSelector] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -85,19 +90,22 @@ export default function ConfiguracoesPage() {
         const organizationId = membershipRes.data?.[0]?.organization_id;
 
         if (organizationId) {
-          const [orgRes, membersRes] = await Promise.all([
+          const [orgRes, membersRes, integrationsRes] = await Promise.all([
             supabase.from('organizations').select('name, slug, status').eq('id', organizationId).maybeSingle(),
             supabase
               .from('organization_members')
               .select('user_id, role, created_at')
               .eq('organization_id', organizationId)
               .order('created_at', { ascending: true }),
+            supabase.from('integrations').select('*').eq('organization_id', organizationId),
           ]);
 
           if (orgRes.error) throw orgRes.error;
           if (membersRes.error) throw membersRes.error;
+          if (integrationsRes.error) throw integrationsRes.error;
 
           if (orgRes.data) setOrg(orgRes.data as OrgInfo);
+          setIntegrations(integrationsRes.data || []);
 
           const userIds = (membersRes.data ?? []).map(member => member.user_id);
 
@@ -127,35 +135,47 @@ export default function ConfiguracoesPage() {
         setError(true);
       } finally {
         setLoading(false);
+        setLoadingIntegrations(false);
       }
     }
 
     fetchData();
   }, []);
 
-  const handleSaveProfile = async () => {
-    if (!userId) return;
-    setSaving(true);
-    setSaveFeedback(null);
+  const handleConnectMeta = async () => {
+    setConnectingMeta(true);
     try {
-      const supabase = createClient();
-
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({
-          full_name: fullName.trim() || null,
-          phone: phone.trim() || null,
-        })
-        .eq('id', userId);
-
-      if (updateError) throw updateError;
-
-      setSaveFeedback({ ok: true, text: 'Perfil salvo com sucesso.' });
+      window.location.href = '/api/integrations/meta/connect';
     } catch (err) {
-      console.error('Error saving profile:', err);
-      setSaveFeedback({ ok: false, text: 'Falha ao salvar o perfil.' });
+      console.error('Error connecting Meta:', err);
+      setSaveFeedback({ ok: false, text: 'Erro ao iniciar conexão com Meta.' });
     } finally {
-      setSaving(false);
+      setConnectingMeta(false);
+    }
+  };
+
+  const handleSelectPage = async (page: any) => {
+    try {
+      const response = await fetch('/api/integrations/meta/finalize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pageId: page.id,
+          organizationId: org?.id,
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to finalize integration');
+
+      setShowPageSelector(false);
+      // Refresh integrations
+      const supabase = createClient();
+      const { data } = await supabase.from('integrations').select('*').eq('organization_id', org?.id);
+      setIntegrations(data || []);
+      setSaveFeedback({ ok: true, text: 'Integração Meta concluída com sucesso!' });
+    } catch (err) {
+      console.error('Error finalizing Meta integration:', err);
+      setSaveFeedback({ ok: false, text: 'Erro ao finalizar integração.' });
     }
   };
 
@@ -265,7 +285,24 @@ export default function ConfiguracoesPage() {
             <div><span>ECOSSISTEMA</span><h2>Integrações</h2></div>
           </div>
           <div className={styles.integrationList}>
-            {['WhatsApp', 'Google', 'Meta'].map(item => (
+            {integrations.filter(i => i.provider === 'meta').map(meta => (
+              <div key={meta.id} className={styles.integrationItem}>
+                <div><span className={styles.integrationDot} /><strong>Meta</strong></div>
+                <span className={styles.badgeActive}>Página: {meta.external_account_name} | Status: {STATUS_LABELS[meta.status] || meta.status}</span>
+              </div>
+            )) || (
+              <div className={styles.integrationItem}>
+                <div><span className={styles.integrationDot} /><strong>Meta</strong></div>
+                <button
+                  className={styles.connectButton}
+                  onClick={handleConnectMeta}
+                  disabled={connectingMeta}
+                >
+                  {connectingMeta ? 'Conectando...' : 'Conectar'}
+                </button>
+              </div>
+            )}
+            {['WhatsApp', 'Google'].map(item => (
               <div key={item} className={styles.integrationItem}>
                 <div><span className={styles.integrationDot} /><strong>{item}</strong></div>
                 <span className={styles.badgeSoon}>Em breve</span>
