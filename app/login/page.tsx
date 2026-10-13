@@ -202,6 +202,13 @@ export default function LoginPage() {
             <ShieldCheck size={16} aria-hidden="true" />
             <span>Ambiente seguro</span>
           </div>
+
+          <div className={styles.legalNotice}>
+            <span>
+              LeadFlow é um produto operado por 65.185.954 NICOLAS DA SILVA NEVES — CNPJ 65.185.954/0001-61.
+            </span>
+            <a href="/privacidade">Política de Privacidade</a>
+          </div>
         </div>
       </section>
     </main>
