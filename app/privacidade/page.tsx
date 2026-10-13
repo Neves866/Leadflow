@@ -11,8 +11,16 @@ export default function PrivacidadePage() {
       <main className={styles.content}>
         <header className={styles.header}>
           <h1>Política de Privacidade</h1>
-          <p className={styles.lastUpdate}>Última atualização: 25 de setembro de 2026</p>
+          <p className={styles.lastUpdate}>Última atualização: 13 de outubro de 2026</p>
         </header>
+
+        <section>
+          <h2>Identificação do responsável</h2>
+          <p>
+            O <strong>LeadFlow</strong> é um produto operado por <strong>65.185.954 NICOLAS DA SILVA NEVES</strong>,
+            inscrita no CNPJ sob nº <strong>65.185.954/0001-61</strong>.
+          </p>
+        </section>
 
         <section>
           <h2>1. Visão Geral</h2>
