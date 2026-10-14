@@ -1,130 +1,423 @@
 # LeadFlow Project State
 
-## Estratégia
-**Iluminar Production First.**
-- Iluminar será a primeira e única organização durante o MVP real.
-- A arquitetura continuará preparada para múltiplas organizações (configs por organização, rotas por slug, IDs estáveis — nada de lógica de cliente no código genérico).
-- Próxima grande fase: **Supabase + Auth + persistência real** (ainda não implementado — sem banco, sem auth, sem segundo cliente por ora).
+## Snapshot
 
-## Objetivo
-Colocar a Iluminar em produção: fluxo real de captação de leads via `/f/iluminar-orcamento` + painel, com persistência simulada em localStorage até a fase Supabase.
+**Atualizado em:** 2026-10-14  
+**Branch de referência:** `main`  
+**Objetivo atual:** transformar o LeadFlow em um CRM SaaS multiempresa pronto para uso real, com Iluminar como primeira operação e uma agência como próximo ambiente de teste.
 
-## Stack
-- vinext (Next.js style on Cloudflare Workers)
-- TypeScript
-- App Router
-- React (Client/Server Components)
+A verificação empresarial da Meta é um bloqueio externo para alguns testes finais de Meta/WhatsApp, mas **não deve bloquear o restante do desenvolvimento**.
+
+---
+
+## Estratégia de produto
+
+- LeadFlow é um SaaS independente.
+- Uma única base Supabase atende múltiplas organizações.
+- Isolamento por `organization_id` + RLS.
+- Papéis previstos: `owner`, `admin`, `member`.
+- Iluminar é a primeira organização real.
+- Cada cliente deve ter suas próprias integrações e regras de automação.
+- Custos variáveis de canais externos devem ficar isolados por organização sempre que possível.
+- WhatsApp deve ser um módulo configurável por empresa, não um comportamento global fixo.
+
+---
+
+## Stack atual
+
+- vinext / App Router
+- React + TypeScript
 - CSS Modules
-- localStorage (simulação de persistência, até a integração com Supabase)
+- Cloudflare Workers
+- Supabase PostgreSQL
+- Supabase Auth
+- Supabase RLS
+- Meta Graph API
+- WhatsApp Cloud API
+- GitHub
+- Cloudflare deploy via `npm run deploy`
 
-## Estado verificado em
-2026-09-14 (limpeza arquitetural pré-Supabase)
+---
 
-## Estrutura atual
-- `app/`: Diretório principal de rotas.
-- `app/f/[slug]/`: Formulário público genérico de produção (resolvido por slug via config).
-- `app/formulario/demo/`: Rota legada — apenas redirect temporário para `/f/iluminar-orcamento`.
-- `components/forms/FormRenderer.tsx`: Renderer genérico. Não conhece serviços nem IDs específicos (ex.: "ar", "iluminar").
-- `components/forms/FormRenderer.module.css`: Estilos do renderer (movidos de `app/formulario/demo/form.module.css`).
-- `lib/config/`: Camada de configuração multiempresa (uma organização: Iluminar).
-- `app/sucesso/`: Página de confirmação de envio.
-- `app/painel/`: Área administrativa (Dashboard, leads, formulários, clientes, configurações).
+## Rotas principais atuais
 
-## Rotas
-- `/`: Home (Landing Page LeadFlow).
-- `/f/iluminar-orcamento`: Formulário público da Iluminar (rota de produção).
-- `/formulario/demo`: Redirect temporário → `/f/iluminar-orcamento` (legado; não usar em código novo).
-- `/sucesso`: Confirmação (Client Component). Protocolo consistente e link para o lead recém-criado.
-- `/painel`: Dashboard (Client Component). Integra Mocks + localStorage, reflete KPIs e trata Valor Potencial Zero.
-- `/painel/leads`: Listagem (Client Component). Integra Mocks + localStorage, possui busca e filtro de status.
-- `/painel/leads/[id]`: Detalhes (Client Component). Exibe respostas completas, normaliza WhatsApp (DDI 55) e trata Valor Potencial Zero.
-- `/painel/formularios`, `/painel/clientes`, `/painel/configuracoes`: páginas de gestão (demonstrativas).
+### Públicas
+- `/` → redireciona para `/login`
+- `/login`
+- `/f/iluminar-orcamento`
+- `/formulario/demo` → redirect legado
+- `/sucesso`
+- `/privacidade`
 
-## Fluxo de produção
-`/` → `/f/iluminar-orcamento` → `/sucesso` → `/painel/leads/[id]` → `/painel/leads` → `/painel`
+### Painel
+- `/painel`
+- `/painel/leads`
+- `/painel/leads/novo`
+- `/painel/leads/[id]`
+- `/painel/clientes`
+- `/painel/formularios`
+- `/painel/configuracoes`
 
-## Configuração (multiempresa-ready)
-- `lib/types/config.ts`: tipos (OrganizationConfig, FormConfig, FormFieldConfig, ServiceConfig).
-  - `ServiceConfig.servicoTemplate?`: template opcional com placeholders `{fieldId}` para compor a descrição do serviço do lead a partir das respostas — resolve no config o que antes era lógica hardcoded no renderer.
-- `lib/config/index.ts`: registro de organizações + `getOrganizationConfig()`, `getFormConfig()`, `getFormConfigBySlug()`. (`getCurrentOrganizationConfig()` foi removida — não era utilizada.)
-- `lib/config/organizations/iluminar.ts`: config da Iluminar.
-  - Form id estável de produção: `form_iluminar_orcamento` (antes `demo_form`).
-  - Slug mantido: `iluminar-orcamento`.
-  - Serviço "ar": `servicoTemplate: '{serviceType} ({btus} BTUs)'` — resultado do lead idêntico ao anterior.
+### APIs / integrações
+- `/api/forms/[slug]/submit`
+- `/api/integrations/meta/connect`
+- `/api/integrations/meta/callback`
+- `/api/integrations/meta/finalize`
+- `/api/webhook/meta`
+- `/api/webhook/whatsapp`
 
-## Convenções
-- Nenhum código novo deve usar "demo" como identificação do formulário real (a rota `/formulario/demo` permanece só como redirect temporário).
-- O FormRenderer não conhece IDs específicos de serviço; descrições compostas vêm de `servicoTemplate` na configuração.
+---
 
-## Dados mockados
-- `MOCK_LEADS` em `@/lib/mocks`.
+## Banco de dados / multi-tenant
 
-## localStorage
-- `leadflow_leads`: Lista de leads criados via formulário (inclui organizationId, formId, formSlug e respostas completas).
-- `leadflow_last_protocol`: Último protocolo gerado.
-- `leadflow_last_lead_id`: ID do último lead criado para redirecionamento na página de sucesso.
-- `leadflow_status_overrides`: Mapeamento de ID -> Status para persistir alterações nos mocks.
+### Concluído
+- Schema principal no Supabase.
+- Organizações e membros.
+- Perfis.
+- Serviços.
+- Formulários, etapas e campos.
+- Pipelines e etapas.
+- Contatos.
+- Leads.
+- Form submissions.
+- Activities / histórico.
+- RLS por organização.
+- Bootstrap da Iluminar.
+- Integrações e credenciais separadas.
+- Sessões temporárias OAuth.
+- Deduplicação de eventos externos do Meta Lead Ads.
 
-## CSS Modules
-- `components/forms/FormRenderer.module.css`
-- `app/sucesso/sucesso.module.css`
-- `app/painel/painel.module.css`
-- `app/painel/layout.module.css`
-- `app/painel/leads/leads.module.css`
-- `app/painel/leads/[id]/details.module.css`
-- `app/painel/formularios/formularios.module.css`
-- `app/painel/clientes/clientes.module.css`
-- `app/painel/configuracoes/configuracoes.module.css`
-- `app/page.module.css`
+### Fundação WhatsApp já criada
+- `whatsapp_conversations`
+- `whatsapp_messages`
+- `notification_rules`
+- `notification_jobs`
+- RLS/grants específicos.
+- Idempotência de mensagens.
+- Estrutura de janela de atendimento de 24h.
+- Estrutura para status `queued/sent/delivered/read/failed/received`.
 
-## Concluído
-- [x] Fase A: Corrigir client boundaries/hydration.
-- [x] Fase A: Fazer /formulario/demo salvar e responder.
-- [x] Fase A: Fazer /sucesso funcionar com protocolo consistente.
-- [x] Fase A: Fazer /painel/leads ler lead e aplicar overrides.
-- [x] Fase A: Fazer /painel/leads/[id] abrir e permitir alteração de status.
-- [x] Fase B: Integrar localStorage no Dashboard.
-- [x] Fase B: Implementar busca e filtro em /painel/leads.
-- [x] Fase B: Implementar navegação "+ Novo Lead" para /formulario/demo.
-- [x] Fase B: Resolver botões mortos em /painel/formularios.
-- [x] Fase B: Criar página de configurações.
-- [x] Fase B: Estilizar página de clientes.
-- [x] Fase C: Landing Page LeadFlow em `/`.
-- [x] Fase C: Atualizar metadata e lang para pt-BR.
-- [x] Fase C: Refinar sidebar com indicação de rota ativa.
-- [x] Acabamento Final: Salvar todas as respostas do formulário.
-- [x] Acabamento Final: Mostrar respostas completas no detalhe do lead.
-- [x] Acabamento Final: Redirecionamento inteligente na página de sucesso.
-- [x] Acabamento Final: Tratamento de Valor Potencial Zero ("A definir").
-- [x] Acabamento Final: Normalização de WhatsApp (DDI 55).
-- [x] Acabamento Final: Sidebar ativa em sub-rotas de leads.
-- [x] Acabamento Final: Feedback em botões demonstrativos.
-- [x] Design Final: Redesign premium do Dashboard e Sidebar.
+Migrations mais recentes confirmadas:
+- `20260928000000_create_integrations_table.sql`
+- `20260928000001_create_oauth_sessions.sql`
+- `20260929000000_create_external_lead_events.sql`
+- `20261001000000_create_whatsapp_foundation.sql`
 
-## Testes executados
-- `npm run build` → PASS (vinext build, todas as rotas compiladas).
-- HTTP runtime (preview/wrangler): `/f/iluminar-orcamento` → 200 com categorias e etapa 1 renderizadas; `/formulario/demo` → 307 redirect para `/f/iluminar-orcamento`; `/painel/leads` → 200.
-- Equivalência verificada por script: o template `{serviceType} ({btus} BTUs)` produz exatamente o mesmo `servico` do código anterior (inclusive com campos vazios).
-- Fluxo completo com criação de lead em navegador (localStorage) segue válido — lógica do renderer preservada sem alteração de comportamento.
+---
 
-## Problemas conhecidos
-- Persistência ainda em localStorage (mock) até a fase Supabase.
-- Páginas de formulários/clientes/configurações do painel seguem demonstrativas.
+## CRM principal — estado atual
 
-## Pendências
-- [x] Fase D: Validação final build + dev (Concluída).
-- [x] Transformação para SaaS Multiempresa: Etapa 1 - Desacoplamento de Configuração.
-- [x] Transformação para SaaS Multiempresa: Etapa 2 - Primeiro Formulário Público Genérico.
-- [x] Limpeza arquitetural pré-Supabase: regra de serviço ('ar') removida do FormRenderer (agora `servicoTemplate` na config).
-- [x] Limpeza arquitetural pré-Supabase: CSS do renderer movido para `components/forms/FormRenderer.module.css`.
-- [x] Limpeza arquitetural pré-Supabase: form id `demo_form` → `form_iluminar_orcamento`.
-- [x] Limpeza arquitetural pré-Supabase: remoção de `getCurrentOrganizationConfig()` (não utilizada).
-- [x] FASE D1: FUNDAÇÃO DO BANCO DE DADOS (Schema, RLS, Seeds e Documentação).
-- [x] FASE D2: Conexão ao Supabase remoto e aplicação de migrations.
-- [x] FASE D3: Implementação de Autenticação Supabase e Proteção do Painel.
+### Dashboard
+- Dados reais do Supabase.
+- Leads do dia.
+- Novos leads.
+- Leads em negociação.
+- Fechados.
+- Valor potencial.
+- Resumo do pipeline.
+- Leads recentes.
 
-## Próxima grande fase
-Supabase remoto + Auth + persistência real (Substituição do localStorage).
+### Leads
+- Listagem real do Supabase.
+- Busca.
+- Filtro por etapa.
+- Visualização em lista.
+- Visualização em Kanban.
+- Drag-and-drop entre etapas.
+- Registro de atividade ao alterar etapa.
+- Criação manual de lead.
+- Criação via formulário público.
+- Origem.
+- Urgência.
+- Valor potencial.
+- Serviço.
+- Responsável.
+- Observações internas.
+- Histórico de atividades.
+- Respostas completas do formulário.
+- Edição da oportunidade.
+- Botão atual de WhatsApp abre `wa.me` — ainda não é chat nativo do CRM.
 
-## Último arquivo em edição
-PROJECT-STATE.md
+### Contatos
+- Lista real de contatos.
+- Pesquisa.
+- Contagem de oportunidades por contato.
+
+### Formulários
+- Formulários reais do Supabase.
+- Contagem de respostas.
+- Formulário público da Iluminar funcional.
+- UTM / gclid / fbclid preservados no fluxo público.
+- Pré-seleção de serviço/problema via URL.
+
+### Usuários / organização
+- Login com Supabase Auth.
+- Painel protegido.
+- Perfil do usuário.
+- Organização atual.
+- Leitura de membros e papéis.
+- Logout.
+- RLS multiempresa já é a base de segurança.
+
+---
+
+## Meta Lead Ads
+
+### Implementado
+- OAuth connect/callback/finalize.
+- Armazenamento seguro de credenciais no backend.
+- Webhook GET de verificação.
+- Validação de assinatura do POST.
+- Normalização dos campos de lead.
+- Deduplicação de eventos.
+- Criação de contato/lead/atividade.
+- Persistência de IDs externos.
+- Tratamento de retries/idempotência.
+
+### Bloqueio externo
+- Verificação empresarial/App Review da Meta ainda em processo.
+- Teste completo com páginas/clientes externos depende da aprovação/permissões finais.
+
+O código não deve ser refeito por causa desse bloqueio; apenas validar end-to-end quando a Meta liberar.
+
+---
+
+## WhatsApp — estado atual
+
+### Concluído
+- Migration/fundação de banco aplicada.
+- `lib/whatsapp/send-message.ts` criado.
+- `lib/whatsapp/send-template.ts` criado.
+- `app/api/webhook/whatsapp/route.ts` criado.
+- GET de verificação do webhook.
+- POST com validação de assinatura.
+- Webhook foi verificado no painel da Meta.
+- Estrutura preparada para conversas, mensagens, regras e jobs.
+
+### Ainda NÃO concluído
+- O webhook de WhatsApp na `main` ainda não persiste mensagens/status.
+- A `main` não contém `lib/whatsapp/webhook.ts`.
+- Pode existir uma versão local não commitada desse arquivo; verificar com `git status --short` antes de continuar.
+- Configurações ainda exibem WhatsApp como “Em breve”.
+- Lead detail ainda usa `wa.me`, não envio nativo.
+- Não existe Inbox `/painel/conversas`.
+- Não existe processamento real de `sent/delivered/read/failed` no banco.
+- Não existe associação automática conversa ↔ contato ↔ lead em produção.
+- Não existe criação/processamento de `notification_jobs`.
+- Não existe regra ativa de “lead urgente → avisar equipe”.
+- Não existe regra configurável de “todo novo lead → mensagem automática ao cliente”.
+- Cloudflare Queue ainda não está configurada.
+
+---
+
+## Legal / publicação
+
+- Política de Privacidade pública existe.
+- Login e Política de Privacidade identificam o operador legal do LeadFlow.
+- Ajuste feito para deixar clara a relação entre o produto LeadFlow e a empresa responsável.
+- Não armazenar segredos no GitHub.
+- Tokens Meta/WhatsApp devem permanecer somente em secrets/credenciais backend.
+
+---
+
+# Roadmap para concluir um CRM forte
+
+## P0 — terminar antes de chamar de CRM pronto para teste sério
+
+### 1. WhatsApp operacional dentro do CRM
+- Finalizar `lib/whatsapp/webhook.ts`.
+- Processar inbound messages.
+- Processar `sent/delivered/read/failed`.
+- Deduplicar corretamente.
+- Atualizar janela de 24h.
+- Resolver contato/conversa por organização.
+- Conectar processador à rota pública.
+- Criar endpoints seguros para envio.
+- Persistir outbound messages.
+- Trocar `wa.me` por envio nativo quando houver integração ativa.
+- Criar Inbox `/painel/conversas`.
+- Exibir não lidas, responsável, status e histórico.
+- Templates fora da janela de 24h.
+- Regras de notificação configuráveis por organização.
+- Exemplo Iluminar: somente lead urgente → alerta interno.
+- Exemplo cliente B: todo lead criado → resposta automática.
+
+### 2. Robustez operacional
+- Processar `notification_jobs`.
+- Retry seguro e idempotente.
+- Adicionar Cloudflare Queue ou worker/outbox equivalente.
+- Falha do WhatsApp nunca pode impedir a criação do lead.
+- Logs seguros sem PII/tokens.
+- Revisar concorrência de `unread_count`.
+- Impedir regressão de status de mensagem (`read -> delivered`, etc.).
+
+### 3. Usuários e onboarding
+- Tela/fluxo de convite de membros.
+- Criar/remover membros.
+- Alterar papéis owner/admin/member com regras seguras.
+- Cadastro público/self-service do SaaS.
+- Criar organização automaticamente para novo owner.
+- Criar pipeline inicial automaticamente.
+- Fluxo de recuperação de senha.
+
+---
+
+## P1 — recursos que fazem o CRM ficar realmente bom no dia a dia
+
+### Tarefas e follow-up
+- Próxima ação por lead.
+- Data/hora de follow-up.
+- Lembretes.
+- Tarefas atribuídas a usuários.
+- Visão “Hoje / Atrasadas / Próximas”.
+- Histórico da tarefa no lead.
+
+### Pipeline configurável
+- Criar/editar/reordenar etapas.
+- Mais de um pipeline por organização.
+- Marcar etapas de ganho/perda.
+- Motivo de perda.
+- Probabilidade/forecast opcional.
+
+### Contatos 360°
+- Página de detalhe do contato.
+- Todas as oportunidades daquele contato.
+- Conversas WhatsApp.
+- Notas.
+- Atividades.
+- Deduplicação por telefone/e-mail.
+- Merge de contatos duplicados.
+
+### Formulários
+- Criador de formulário no painel.
+- Criar/editar campos e etapas sem código.
+- Ativar/desativar.
+- Copiar link.
+- Preview.
+- Mapeamento do formulário para serviço/pipeline/origem.
+
+### Relatórios
+- Conversão por etapa.
+- Conversão por origem.
+- Conversão por serviço.
+- Conversão por responsável.
+- Tempo médio até primeiro contato.
+- Tempo por etapa.
+- Ganhos/perdas.
+- Valor ganho.
+- Períodos e filtros.
+- Exportação CSV.
+
+### Busca e produtividade
+- Busca global.
+- Filtros avançados.
+- Ordenação.
+- Ações em massa.
+- Atalhos rápidos.
+- Campos personalizados.
+
+---
+
+## P2 — SaaS comercial
+
+### Planos e limites
+- Tabela de planos.
+- Assinaturas.
+- Limite de usuários.
+- Limite de automações.
+- Limite/uso de mensagens.
+- Controle de features por plano.
+- Página de uso/custos por organização.
+
+### Integrações
+- Google/Calendar.
+- E-mail.
+- Webhooks genéricos.
+- API pública do LeadFlow.
+- Importação CSV.
+- Outras fontes de lead.
+
+### Automação
+- Motor de gatilho + condição + ação.
+- Ex.: lead criado.
+- Ex.: urgência alta.
+- Ex.: etapa alterada.
+- Ex.: sem resposta por X horas/dias.
+- Ações: WhatsApp, tarefa, mudar etapa, atribuir usuário.
+
+### IA — depois do CRM estar sólido
+- Resumo de conversas.
+- Sugestão de resposta.
+- Qualificação de lead.
+- Classificação de intenção.
+- Follow-up sugerido.
+- Nunca deixar IA bloquear operações básicas do CRM.
+
+---
+
+## Dívidas técnicas / segurança a revisar
+
+- `.env.example` ainda não documenta `WHATSAPP_VERIFY_TOKEN`.
+- `wrangler.jsonc` ainda não possui bindings de Queue.
+- WhatsApp inbound processor não está na `main`.
+- Confirmar que qualquer token anteriormente exposto foi rotacionado.
+- Revisar logs existentes para evitar PII.
+- Revisar páginas que fazem writes diretamente do client e confirmar que RLS cobre todos os casos.
+- Criar testes automatizados para fluxos críticos:
+  - criação de lead;
+  - RLS multiempresa;
+  - mudança de etapa;
+  - Meta dedupe;
+  - WhatsApp dedupe/status;
+  - notification jobs.
+- Criar estratégia de soft delete/arquivamento para dados importantes.
+- Criar recuperação/backup operacional para produção.
+
+---
+
+# Ordem recomendada a partir de agora
+
+1. **Finalizar o processador do webhook WhatsApp e colocar na main.**
+2. **Conectar inbound/status à rota e testar com payloads simulados.**
+3. **Criar envio nativo de WhatsApp pelo lead.**
+4. **Criar Inbox de conversas.**
+5. **Criar notification rules/jobs + regra de urgência da Iluminar.**
+6. **Implementar tarefas/follow-up.**
+7. **Completar gestão de equipe/onboarding.**
+8. **Pipeline configurável.**
+9. **Contato 360°.**
+10. **Form builder.**
+11. **Relatórios/exportações.**
+12. **Planos/limites/uso.**
+13. **Integrações adicionais e IA.**
+
+---
+
+## Regra de trabalho
+
+Durante horário comercial:
+- executar uma tarefa por vez;
+- prompts simples e literais para agentes;
+- build antes de commit;
+- commit/push por bloco funcional;
+- não misturar refactor grande com feature.
+
+Antes de cada novo bloco:
+
+```powershell
+git status --short
+git pull
+```
+
+Depois do bloco:
+
+```powershell
+npm run build
+git status --short
+git add .
+git commit -m "mensagem objetiva"
+git push
+npm run deploy
+```
+
+Não usar `git add .` se houver arquivos inesperados no `git status`; revisar primeiro.
